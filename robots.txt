@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://js-banana.github.io/deals/sitemap.xml
