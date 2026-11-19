@@ -220,7 +220,7 @@ th:first-child {min-width:80px}
   .meta {font-size:.68rem;gap:4px}.meta svg {width:13px}.heading p {font-size:.79rem}
   .categories {gap:7px;padding-bottom:5px;margin-top:7px;margin-bottom:6px;scrollbar-width:none}
   .category {flex:none;padding:8px 11px;font-size:.8rem;gap:6px}
-  .filters {gap:6px;margin-bottom:11px}.tabs {width:100%;justify-content:space-between;gap:0}.tabs button {font-size:.78rem;padding:6px 7px}
+  .filters {gap:6px;margin-bottom:11px}.tabs {width:100%;min-width:0;overflow-x:auto;scrollbar-width:none;justify-content:space-between;gap:0}.tabs button {flex:none;font-size:.78rem;padding:6px 7px}
   .options {width:100%;font-size:.78rem;gap:13px}.options select {margin-left:auto;font-size:.77rem;padding-block:5px}
   .grid,.topic-grid {grid-template-columns:1fr;gap:11px}.deal-card {padding:16px}.summary {min-height:0}.price {font-size:1.85rem}.price-line {margin-top:12px}
   .details-link {padding:6px 10px}.coupon {min-height:38px}.compare-option {font-size:.78rem;padding:4px}
@@ -229,6 +229,9 @@ th:first-child {min-width:80px}
   .rows>div {grid-template-columns:73px 1fr;gap:9px}.rows {font-size:.85rem}
   dialog {max-height:calc(100dvh - 20px)}.detail-body {padding:18px}.detail-actions {gap:8px}.permalink {font-size:.78rem}
   .compare-bar {gap:10px;padding:10px 13px}
+}
+@media (max-width:360px) {
+  .tabs button {padding-inline:5px;font-size:.75rem}
 }
 @media (prefers-reduced-motion:reduce) {*,*::before,*::after {scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 .unit {font-size:.82rem;color:#515f54}
