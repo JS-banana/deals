@@ -124,7 +124,7 @@ export function sortDeals(list: DealView[], sort: Sort): DealView[] {
 }
 
 const moneyFormats = new Map<string, Intl.NumberFormat>();
-export function formatMoney(amount: number, currency: string, locale: Locale): string {
+function moneyFormat(amount: number, currency: string, locale: Locale): Intl.NumberFormat {
   const fraction = Number.isInteger(amount) ? 0 : 2;
   const key = `${locale}:${currency}:${fraction}`;
   let format = moneyFormats.get(key);
@@ -138,5 +138,24 @@ export function formatMoney(amount: number, currency: string, locale: Locale): s
     });
     moneyFormats.set(key, format);
   }
-  return format.format(amount);
+  return format;
+}
+
+export function formatMoney(amount: number, currency: string, locale: Locale): string {
+  return moneyFormat(amount, currency, locale).format(amount);
+}
+
+/** The same amount split for display typography: `$` · `1,194` · `.40`. */
+export function moneyParts(
+  amount: number,
+  currency: string,
+  locale: Locale,
+): { symbol: string; integer: string; fraction: string } {
+  const out = { symbol: '', integer: '', fraction: '' };
+  for (const part of moneyFormat(amount, currency, locale).formatToParts(amount)) {
+    if (part.type === 'currency') out.symbol += part.value;
+    else if (part.type === 'integer' || part.type === 'group') out.integer += part.value;
+    else if (part.type === 'decimal' || part.type === 'fraction') out.fraction += part.value;
+  }
+  return out;
 }

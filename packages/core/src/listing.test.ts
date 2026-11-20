@@ -5,6 +5,7 @@ import {
   filterDeals,
   filtersToParams,
   formatMoney,
+  moneyParts,
   parseFilters,
 } from './listing.ts';
 import { type DealView, dealSchema } from './schema.ts';
@@ -104,6 +105,14 @@ describe('formatMoney', () => {
     expect(formatMoney(47.4, 'USD', 'en')).toBe('$47.40');
     expect(formatMoney(59, 'USD', 'zh')).toBe('$59');
     expect(formatMoney(17.7, 'EUR', 'en')).toBe('€17.70');
+  });
+  it('splits symbol, integer and fraction for display', () => {
+    expect(moneyParts(1194.4, 'USD', 'en')).toEqual({
+      symbol: '$',
+      integer: '1,194',
+      fraction: '.40',
+    });
+    expect(moneyParts(59, 'EUR', 'zh')).toEqual({ symbol: '€', integer: '59', fraction: '' });
   });
 });
 

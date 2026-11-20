@@ -65,21 +65,40 @@ export function ProductLogo({
   );
 }
 
-/** Price headline, billing unit, struck-through original price and discount chip. */
+/**
+ * Price headline in shop-style typography: a large, heavy integer with the currency symbol and
+ * cents set smaller, followed by the billing unit, struck-through original price and discount chip.
+ * Screen readers get the plain formatted price.
+ */
 export function PriceLine({ parts, size = 'md' }: { parts: PriceParts; size?: 'md' | 'lg' }) {
   const t = useTranslations('deal');
-  const headline = parts.price ?? parts.discount;
+  const split = parts.priceSplit;
   return (
     <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <span
-        className={cn(
-          'font-semibold tabular-nums',
-          size === 'lg' ? 'text-4xl' : 'text-2xl',
-          !parts.price && 'text-live-foreground',
-        )}
-      >
-        {headline}
-      </span>
+      {split && parts.price ? (
+        <span
+          className={cn(
+            'leading-none font-bold tracking-tight text-price tabular-nums',
+            size === 'lg' ? 'text-5xl' : 'text-[2rem]',
+          )}
+        >
+          <span className="sr-only">{parts.price}</span>
+          <span aria-hidden="true">
+            <span className="mr-0.5 text-[0.55em] font-semibold">{split.symbol}</span>
+            {split.integer}
+            {split.fraction && <span className="text-[0.55em]">{split.fraction}</span>}
+          </span>
+        </span>
+      ) : (
+        <span
+          className={cn(
+            'leading-none font-bold tracking-tight text-live-foreground',
+            size === 'lg' ? 'text-4xl' : 'text-2xl',
+          )}
+        >
+          {parts.discount}
+        </span>
+      )}
       {parts.price && parts.unit && (
         <span className="text-sm text-muted-foreground">{parts.unit}</span>
       )}
@@ -90,7 +109,7 @@ export function PriceLine({ parts, size = 'md' }: { parts: PriceParts; size?: 'm
         </s>
       )}
       {parts.price && parts.discount && (
-        <span className="inline-flex h-6 items-center rounded-full bg-brand px-2.5 text-xs font-semibold text-brand-foreground">
+        <span className="inline-flex h-6 items-center self-center rounded-full bg-brand px-2.5 text-xs font-semibold text-brand-foreground">
           {parts.discount}
         </span>
       )}

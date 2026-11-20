@@ -10,7 +10,7 @@ export async function GET() {
       .from(deals)
       .where(eq(deals.status, 'published'));
     return Response.json(
-      { ok: true, deals: row?.published ?? 0 },
+      { ok: true, deals: row?.published ?? 0, version: process.env.GIT_SHA ?? 'dev' },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch {

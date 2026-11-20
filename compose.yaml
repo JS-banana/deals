@@ -48,6 +48,8 @@ services:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
     image: deals-web
     restart: unless-stopped
     environment:

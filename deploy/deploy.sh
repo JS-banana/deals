@@ -26,9 +26,11 @@ if [[ "$force" != "--force" ]]; then
 fi
 
 port=$(sed -n 's/^WEB_PORT=//p' .env | tail -1)
+# Healthy means the container answering is the one built from the expected commit.
 healthy() {
+  local want=$1
   for _ in $(seq 1 30); do
-    curl -fsS "http://127.0.0.1:${port:-3100}/api/health" >/dev/null 2>&1 && return 0
+    curl -fsS "http://127.0.0.1:${port:-3100}/api/health" 2>/dev/null | grep -q "\"version\":\"$want\"" && return 0
     sleep 3
   done
   return 1
@@ -36,12 +38,13 @@ healthy() {
 
 echo "Deploying ${target:0:7} (was ${current:0:7})"
 git reset --quiet --hard "$target"
-if docker compose up -d --build --remove-orphans && healthy; then
+export GIT_SHA=${target:0:7}
+if docker compose up -d --build --remove-orphans && healthy "$GIT_SHA"; then
   docker image prune -f >/dev/null
   echo "Deployed ${target:0:7}"
 else
   echo "Deploy of ${target:0:7} failed; rolling back to ${current:0:7}" >&2
   git reset --quiet --hard "$current"
-  docker compose up -d --build --remove-orphans
+  GIT_SHA=${current:0:7} docker compose up -d --build --remove-orphans
   exit 1
 fi

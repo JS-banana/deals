@@ -9,6 +9,7 @@ import {
   formatMoney,
   isEndingSoon,
   type Locale,
+  moneyParts,
   pick,
   SITE_TIME_ZONE,
 } from '@deals/core';
@@ -137,6 +138,8 @@ export function deadline(d: DealView, now: Date, t: T, fmt: Fmt): Deadline {
 
 export interface PriceParts {
   price: string | null;
+  /** The price split for display typography; null when the deal has no price. */
+  priceSplit: ReturnType<typeof moneyParts> | null;
   unit: string | null;
   original: string | null;
   discount: string | null;
@@ -156,6 +159,8 @@ export function priceParts(d: DealView, locale: Locale, t: T): PriceParts {
   }
   return {
     price: money(d.priceAmount),
+    priceSplit:
+      d.priceAmount !== null && d.currency ? moneyParts(d.priceAmount, d.currency, locale) : null,
     unit: d.billing === 'other' ? null : t(`billing.${d.billing}`),
     original: money(d.originalAmount),
     discount,
