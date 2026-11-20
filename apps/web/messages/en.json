@@ -13,6 +13,7 @@
     "events": "Events",
     "about": "How we curate",
     "saved": "Saved",
+    "savedCount": "{count, plural, one {Saved, # item} other {Saved, # items}}",
     "menu": "Menu",
     "switchLanguage": "Switch to Chinese",
     "toggleTheme": "Toggle dark mode"
@@ -23,5 +24,281 @@
     "about": "How we curate",
     "events": "All events",
     "feedback": "Report an issue"
+  },
+  "common": {
+    "breadcrumb": "Breadcrumb",
+    "home": "Home",
+    "close": "Close"
+  },
+  "dates": {
+    "today": "Today",
+    "inDays": "in {count, plural, one {# day} other {# days}}",
+    "passed": "Passed"
+  },
+  "deal": {
+    "billing": {
+      "one_time": "lifetime",
+      "first_year": "first year",
+      "year": "/ year",
+      "month": "/ month"
+    },
+    "originalPrice": "Original price",
+    "off": "{percent}% off",
+    "save": "Save {amount}",
+    "noteFallback": "See the merchant's page for details. The checkout price is final.",
+    "badge": {
+      "endingPrecise": "Ends within 48 hours",
+      "ending": "Ending soon",
+      "upcoming": "Upcoming",
+      "ended": "Ended",
+      "community": "Community-sourced"
+    },
+    "code": {
+      "label": "Coupon code",
+      "copy": "Copy coupon code {code}",
+      "copied": "Copied {code}",
+      "copiedShort": "Copied",
+      "copyShort": "Copy",
+      "copyFailed": "Couldn't copy. Please select the code manually.",
+      "auto": "No code needed · applied automatically",
+      "unknown": "Code not published"
+    },
+    "deadline": {
+      "ended": "Ended",
+      "startsToday": "Starts today",
+      "startsInHours": "Starts in {count}h",
+      "startsIn": "{count, plural, one {Starts in # day} other {Starts in # days}}",
+      "endsInUnderHour": "Under 1h left",
+      "endsInHours": "{count}h left",
+      "daysLeft": "{count, plural, one {# day left} other {# days left}}",
+      "endsToday": "Ends today",
+      "noEnd": "End date not announced"
+    }
+  },
+  "actions": {
+    "save": "Save",
+    "saved": "Saved",
+    "unsave": "Remove from saved",
+    "saveLabel": "Save {name}",
+    "compare": "Compare",
+    "compareLabel": "Add {name} to comparison",
+    "compareFull": "You can compare up to {max} deals"
+  },
+  "discover": {
+    "title": "All deals",
+    "label": "Filter deals",
+    "searchLabel": "Search deals",
+    "searchPlaceholder": "Search software, use case or code",
+    "sortLabel": "Sort by",
+    "sort": {
+      "curated": "Curated",
+      "ending": "Ending soonest",
+      "discount": "Biggest discount",
+      "price": "Lowest price"
+    },
+    "categoryLabel": "Category",
+    "all": "All",
+    "statusLabel": "Status",
+    "status": {
+      "active": "Active",
+      "live": "Live",
+      "ending": "Ending soon",
+      "upcoming": "Upcoming",
+      "ended": "Ended"
+    },
+    "lifetime": "Lifetime",
+    "existing": "Existing customers",
+    "updating": "Updating",
+    "count": "{count, plural, one {# deal} other {# deals}}",
+    "clear": "Clear filters",
+    "apply": "Apply filters",
+    "emptyTitle": "No deals match",
+    "emptyText": "Try loosening the filters, or clear them all.",
+    "shown": "Showing {shown} of {total}",
+    "more": "Show more"
+  },
+  "hero": {
+    "pick": "Editor's pick",
+    "genericTitle": "Software deals, spelled out",
+    "genericText": "Compare real prices, renewal terms, coupon codes and deadlines. Every deal names its source.",
+    "searchLabel": "Search deals",
+    "searchPlaceholder": "Search software, use case or code",
+    "search": "Search",
+    "quick": {
+      "ai": "AI tools",
+      "lifetime": "Lifetime licenses",
+      "existing": "For existing customers"
+    }
+  },
+  "events": {
+    "title": "Events",
+    "text": "Software discounts grouped by shopping season, plus standing offers.",
+    "section": {
+      "live": "Happening now",
+      "upcoming": "Coming up",
+      "evergreen": "Always on",
+      "past": "Past events"
+    },
+    "phase": {
+      "live": "Live now",
+      "upcoming": "Upcoming",
+      "ended": "Ended"
+    },
+    "dealCount": "{count, plural, one {# active deal} other {# active deals}}",
+    "open": "View deals"
+  },
+  "topics": {
+    "title": "Browse by topic",
+    "text": "Start from what you want to get done.",
+    "count": "{count, plural, one {# active deal} other {# active deals}}",
+    "open": "Browse"
+  },
+  "category": {
+    "metaTitle": "{name} deals and coupon codes",
+    "metaDescription": "Discounts, coupon codes and deadlines for {name} software, with renewal and eligibility terms.",
+    "text": "Current {name} deals with prices, renewal terms and deadlines.",
+    "count": "{count, plural, one {# active deal} other {# active deals}}"
+  },
+  "product": {
+    "metaTitle": "{name} deal and coupon code",
+    "website": "Website",
+    "panel": "Deal summary",
+    "visit": "Go to merchant page",
+    "checkoutNote": "The checkout price is final. Opens in a new tab.",
+    "details": "Deal details",
+    "plan": "Plan",
+    "terms": "Terms",
+    "eligibility": "Eligibility",
+    "existingUsers": "Existing customers",
+    "yes": "Yes",
+    "renewal": "Renewal",
+    "starts": "Starts",
+    "ends": "Ends",
+    "zone": "UTC",
+    "dateOnly": "date only",
+    "unannounced": "Not announced",
+    "observedLive": "live on the merchant's page on {date}",
+    "sources": "Sources",
+    "communitySource": "Community list entry",
+    "merchantSource": "Merchant campaign page",
+    "verifiedNote": "Merchant verified: on the checked date the campaign was confirmed on the merchant's public page.",
+    "communityNote": "Community-sourced: taken from a community list and not yet confirmed on the merchant's page.",
+    "checkedOn": "Checked on {date}.",
+    "history": "Deal history",
+    "current": "Current",
+    "priceHistory": "Price history",
+    "priceHistoryLabel": "Observed price changed from {from} to {to}",
+    "latest": "Latest",
+    "lowest": "Lowest",
+    "highest": "Highest",
+    "similar": "Similar software",
+    "viewFull": "Open full page"
+  },
+  "saved": {
+    "title": "Saved deals",
+    "text": "Saved deals stay in this browser. No account needed.",
+    "count": "{count, plural, one {# saved deal} other {# saved deals}}",
+    "emptyTitle": "Nothing saved yet",
+    "emptyText": "Tap the bookmark on a deal card and it will show up here.",
+    "browse": "Browse deals",
+    "clear": "Clear all",
+    "clearConfirm": "Clear all?"
+  },
+  "compare": {
+    "label": "Deal comparison",
+    "selected": "{count} of 3 selected",
+    "open": "Compare",
+    "clear": "Clear",
+    "remove": "Remove {name}",
+    "needTwo": "Pick at least 2 deals to compare",
+    "title": "Compare deals",
+    "description": "Prices, renewals, eligibility and deadlines side by side.",
+    "close": "Close",
+    "rows": {
+      "plan": "Plan",
+      "price": "Price",
+      "original": "Original",
+      "discount": "Discount",
+      "renewal": "Renewal",
+      "eligibility": "Eligibility",
+      "code": "Code",
+      "deadline": "Deadline",
+      "terms": "Terms"
+    }
+  },
+  "about": {
+    "title": "How we curate",
+    "lead": "Deal Index tracks software discounts from around the world. Here is what we include, how we check it and how the data stays current.",
+    "source": {
+      "title": "Every deal keeps its source",
+      "body": "Each deal links to where it came from: the original community list entry or the merchant's public campaign page. Open any deal to see its source and the date it was last checked."
+    },
+    "marks": {
+      "title": "Two source marks",
+      "body": "Cards only carry badges for exceptions. A deal without a badge is merchant verified.",
+      "verified": "Merchant verified",
+      "verifiedBody": "On the checked date, the campaign was confirmed on the merchant's public page.",
+      "community": "Community-sourced",
+      "communityBody": "Taken from a community list and not yet confirmed on the merchant's page. Treat the merchant's page as the final word."
+    },
+    "prices": {
+      "title": "How prices are written",
+      "body": "Prices keep the merchant's original currency, plan, first-period price and renewal terms, with no currency conversion. Lifetime, first-year, yearly and monthly prices are labeled separately. If only a discount is published, the discount is the headline."
+    },
+    "time": {
+      "title": "How dates and times work",
+      "body": "Campaigns with a precise time show Beijing time on the Chinese site and UTC on the English site. Date-only campaigns keep the date the source gives, with no time added, and end according to the merchant's calendar day. A deal with no published start is never treated as not yet started."
+    },
+    "checkout": {
+      "title": "The checkout price is final",
+      "body": "Discounts, taxes and availability can change at any time. Before you buy, rely on the price and terms shown at the merchant's checkout."
+    },
+    "pipeline": {
+      "title": "How the data is updated",
+      "body": "An automated pipeline refreshes the data every day. AI drafts the extraction and the translations, and a human reviews every change before it is published."
+    },
+    "steps": {
+      "fetch": {
+        "title": "Fetch",
+        "text": "Check merchant pages and community lists for changes every day."
+      },
+      "draft": {
+        "title": "Draft",
+        "text": "AI extracts prices, dates and terms, and drafts translations."
+      },
+      "review": {
+        "title": "Review",
+        "text": "A person checks each change. Nothing goes live without approval."
+      },
+      "publish": {
+        "title": "Publish",
+        "text": "The site is updated and price changes are recorded."
+      }
+    },
+    "origin": {
+      "title": "Where the data comes from",
+      "body": "The initial data comes from the community list <link>Awesome-Black-Friday-Cyber-Monday</link> on GitHub. We check and extend it entry by entry."
+    },
+    "privacy": {
+      "title": "Favorites and privacy",
+      "body": "Favorites stay in your browser. They are never uploaded and no account is needed. Clearing your browser data clears them too."
+    },
+    "feedback": {
+      "title": "Feedback and corrections",
+      "body": "Found a wrong price, date or term, or want to suggest software? Open an issue on <link>GitHub</link>."
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "The link may be outdated, or the deal may have been removed.",
+    "home": "Back to home",
+    "events": "Browse events"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "text": "Please try again. If the problem persists, check back later.",
+    "retry": "Try again",
+    "home": "Back to home",
+    "reference": "Reference"
   }
 }

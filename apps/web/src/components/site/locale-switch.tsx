@@ -21,7 +21,7 @@ export function LocaleSwitch({ className }: { className?: string }) {
       href={search ? `${pathname}?${search}` : pathname}
       locale={next}
       className={cn(
-        'inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+        'inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
         className,
       )}
       aria-label={t('switchLanguage')}

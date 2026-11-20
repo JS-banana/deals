@@ -1,10 +1,10 @@
-import { Bookmark } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { Brand } from './brand';
 import { LocaleSwitch } from './locale-switch';
 import { MobileNav } from './mobile-nav';
 import { NAV_ITEMS } from './nav-items';
+import { SavedLink } from './saved-link';
 import { ThemeToggle } from './theme-toggle';
 
 export function SiteHeader() {
@@ -32,13 +32,7 @@ export function SiteHeader() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1">
-            <Link
-              href="/saved"
-              className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <Bookmark className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('saved')}</span>
-            </Link>
+            <SavedLink />
             <div className="hidden items-center gap-1 md:flex">
               <LocaleSwitch />
               <ThemeToggle />

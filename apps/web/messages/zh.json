@@ -13,6 +13,7 @@
     "events": "活动",
     "about": "收录标准",
     "saved": "我的收藏",
+    "savedCount": "我的收藏，{count} 项",
     "menu": "菜单",
     "switchLanguage": "切换到英文",
     "toggleTheme": "切换深浅色"
@@ -23,5 +24,281 @@
     "about": "收录标准",
     "events": "全部活动",
     "feedback": "反馈纠错"
+  },
+  "common": {
+    "breadcrumb": "当前位置",
+    "home": "首页",
+    "close": "关闭"
+  },
+  "dates": {
+    "today": "今天",
+    "inDays": "还有 {count} 天",
+    "passed": "已过"
+  },
+  "deal": {
+    "billing": {
+      "one_time": "买断",
+      "first_year": "首年",
+      "year": "/ 年",
+      "month": "/ 月"
+    },
+    "originalPrice": "原价",
+    "off": "省 {percent}%",
+    "save": "省 {amount}",
+    "noteFallback": "详见商家活动页，以结算页价格为准。",
+    "badge": {
+      "endingPrecise": "48 小时内结束",
+      "ending": "即将结束",
+      "upcoming": "未开始",
+      "ended": "已结束",
+      "community": "社区收录"
+    },
+    "code": {
+      "label": "优惠码",
+      "copy": "复制优惠码 {code}",
+      "copied": "已复制 {code}",
+      "copiedShort": "已复制",
+      "copyShort": "复制",
+      "copyFailed": "复制失败，请手动选择优惠码",
+      "auto": "无需优惠码 · 自动优惠",
+      "unknown": "优惠码未公布"
+    },
+    "deadline": {
+      "ended": "已结束",
+      "startsToday": "今天开始",
+      "startsInHours": "{count} 小时后开始",
+      "startsIn": "{count} 天后开始",
+      "endsInUnderHour": "不到 1 小时",
+      "endsInHours": "还有 {count} 小时",
+      "daysLeft": "还有 {count} 天",
+      "endsToday": "今天结束",
+      "noEnd": "截止日期未公布"
+    }
+  },
+  "actions": {
+    "save": "收藏",
+    "saved": "已收藏",
+    "unsave": "取消收藏",
+    "saveLabel": "收藏 {name}",
+    "compare": "对比",
+    "compareLabel": "加入对比：{name}",
+    "compareFull": "最多同时对比 {max} 项"
+  },
+  "discover": {
+    "title": "全部优惠",
+    "label": "筛选优惠",
+    "searchLabel": "搜索优惠",
+    "searchPlaceholder": "搜索软件、用途或优惠码",
+    "sortLabel": "排序",
+    "sort": {
+      "curated": "编辑推荐",
+      "ending": "最先结束",
+      "discount": "折扣最大",
+      "price": "价格最低"
+    },
+    "categoryLabel": "分类",
+    "all": "全部",
+    "statusLabel": "状态",
+    "status": {
+      "active": "有效",
+      "live": "进行中",
+      "ending": "即将结束",
+      "upcoming": "未开始",
+      "ended": "已结束"
+    },
+    "lifetime": "可买断",
+    "existing": "老用户可用",
+    "updating": "正在更新",
+    "count": "{count} 条优惠",
+    "clear": "清除筛选",
+    "apply": "应用筛选",
+    "emptyTitle": "没有符合条件的优惠",
+    "emptyText": "试试放宽筛选条件，或清除全部筛选。",
+    "shown": "已显示 {shown} / {total}",
+    "more": "显示更多"
+  },
+  "hero": {
+    "pick": "编辑精选",
+    "genericTitle": "软件优惠，一次看清",
+    "genericText": "按用途比较实付价格、续费条件、优惠码和截止日期。每条活动都标明来源。",
+    "searchLabel": "搜索优惠",
+    "searchPlaceholder": "搜索软件、用途或优惠码",
+    "search": "搜索",
+    "quick": {
+      "ai": "AI 工具",
+      "lifetime": "买断授权",
+      "existing": "老用户可用"
+    }
+  },
+  "events": {
+    "title": "活动",
+    "text": "按购物季和常年优惠整理的软件折扣。",
+    "section": {
+      "live": "进行中",
+      "upcoming": "即将开始",
+      "evergreen": "常年优惠",
+      "past": "往期活动"
+    },
+    "phase": {
+      "live": "进行中",
+      "upcoming": "即将开始",
+      "ended": "已结束"
+    },
+    "dealCount": "{count} 条有效优惠",
+    "open": "查看优惠"
+  },
+  "topics": {
+    "title": "按主题浏览",
+    "text": "从你想解决的问题出发，挑选软件。",
+    "count": "{count} 条有效优惠",
+    "open": "查看"
+  },
+  "category": {
+    "metaTitle": "{name}优惠与折扣码",
+    "metaDescription": "{name}类软件的折扣、优惠码与截止日期，标明续费与资格条件。",
+    "text": "{name}类软件的当前优惠，价格、续费条件与截止日期一目了然。",
+    "count": "{count} 条有效优惠"
+  },
+  "product": {
+    "metaTitle": "{name} 优惠与折扣码",
+    "website": "官网",
+    "panel": "优惠详情",
+    "visit": "前往商家页面",
+    "checkoutNote": "价格以商家结算页为准，链接在新标签页打开。",
+    "details": "优惠详情",
+    "plan": "方案",
+    "terms": "条款",
+    "eligibility": "适用对象",
+    "existingUsers": "老用户可用",
+    "yes": "可以",
+    "renewal": "续费",
+    "starts": "开始",
+    "ends": "结束",
+    "zone": "北京时间",
+    "dateOnly": "来源仅提供日期",
+    "unannounced": "未公布",
+    "observedLive": "商家页面已于 {date} 上线",
+    "sources": "来源",
+    "communitySource": "社区清单条目",
+    "merchantSource": "商家活动页",
+    "verifiedNote": "商家已核实：核对当天，该活动已在商家公开页面上确认。",
+    "communityNote": "社区收录：来自社区清单，尚未在商家页面核实。",
+    "checkedOn": "核对于 {date}。",
+    "history": "活动记录",
+    "current": "当前",
+    "priceHistory": "价格记录",
+    "priceHistoryLabel": "观察到的价格从 {from} 变为 {to}",
+    "latest": "最新",
+    "lowest": "最低",
+    "highest": "最高",
+    "similar": "同类软件",
+    "viewFull": "查看完整页面"
+  },
+  "saved": {
+    "title": "我的收藏",
+    "text": "收藏只保存在这台设备的浏览器里，无需登录。",
+    "count": "{count} 项收藏",
+    "emptyTitle": "还没有收藏",
+    "emptyText": "点优惠卡片上的书签图标，它会出现在这里。",
+    "browse": "去看看优惠",
+    "clear": "清空收藏",
+    "clearConfirm": "确认清空？"
+  },
+  "compare": {
+    "label": "优惠对比",
+    "selected": "已选 {count} / 3",
+    "open": "开始对比",
+    "clear": "清空",
+    "remove": "移除 {name}",
+    "needTwo": "至少选择 2 项才能对比",
+    "title": "优惠对比",
+    "description": "并排查看价格、续费、资格和截止日期。",
+    "close": "关闭",
+    "rows": {
+      "plan": "方案",
+      "price": "价格",
+      "original": "原价",
+      "discount": "折扣",
+      "renewal": "续费",
+      "eligibility": "适用对象",
+      "code": "优惠码",
+      "deadline": "截止",
+      "terms": "条款"
+    }
+  },
+  "about": {
+    "title": "收录标准",
+    "lead": "好价清单整理全球软件的折扣活动。这里说明我们收录什么、怎么核对、数据如何更新。",
+    "source": {
+      "title": "每条优惠都有来源",
+      "body": "每条活动都保留来源：社区清单里的原始条目，或商家公开的活动页。打开任何一条优惠，都能看到来源链接和核对日期。"
+    },
+    "marks": {
+      "title": "两种来源标记",
+      "body": "卡片只对例外情况加标记。没有标记的优惠，都是商家已核实的。",
+      "verified": "商家已核实",
+      "verifiedBody": "核对日期当天，该活动已在商家的公开页面上得到确认。",
+      "community": "社区收录",
+      "communityBody": "来自社区清单，尚未在商家页面核实。请以商家页面为准。"
+    },
+    "prices": {
+      "title": "价格怎么写",
+      "body": "价格保留商家的原始币种、方案、首期价格和续费条件，不做汇率换算。买断、首年、按年、按月分别标注。只公布折扣、没有公布价格的活动，以折扣作为主要信息。"
+    },
+    "time": {
+      "title": "时间怎么算",
+      "body": "有精确时间的活动：中文站显示北京时间，英文站显示 UTC。只有日期的活动保持来源给出的日期，不补全时间，并按商家所在时区的日历日判断是否结束。开始时间未公布的活动不会被当作未开始。"
+    },
+    "checkout": {
+      "title": "以结算页为准",
+      "body": "折扣、税费和库存随时可能变化。下单前，请以商家结算页显示的价格和条款为准。"
+    },
+    "pipeline": {
+      "title": "数据怎么更新",
+      "body": "数据由自动流程每天刷新。AI 负责起草提取结果和翻译，每一处改动在发布前都由人工审核。"
+    },
+    "steps": {
+      "fetch": {
+        "title": "抓取",
+        "text": "每天检查商家活动页和社区清单的变化。"
+      },
+      "draft": {
+        "title": "起草",
+        "text": "AI 提取价格、期限和条款，并起草译文。"
+      },
+      "review": {
+        "title": "审核",
+        "text": "人工逐项核对，通过后才会发布。"
+      },
+      "publish": {
+        "title": "发布",
+        "text": "更新站点，并记录价格变化。"
+      }
+    },
+    "origin": {
+      "title": "数据来源",
+      "body": "初始数据来自 GitHub 上的社区清单 <link>Awesome-Black-Friday-Cyber-Monday</link>，之后由我们逐条核对和补充。"
+    },
+    "privacy": {
+      "title": "收藏与隐私",
+      "body": "收藏只保存在你的浏览器里，不上传，也不需要登录。清除浏览器数据会一并清除收藏。"
+    },
+    "feedback": {
+      "title": "反馈与纠错",
+      "body": "发现价格、日期或条款有误，或想推荐一款软件，请到 <link>GitHub Issues</link> 反馈。"
+    }
+  },
+  "notFound": {
+    "title": "找不到这个页面",
+    "text": "链接可能已失效，或这条优惠已下架。",
+    "home": "回到首页",
+    "events": "浏览活动"
+  },
+  "error": {
+    "title": "页面出错了",
+    "text": "请重试。如果问题持续，请稍后再来。",
+    "retry": "重试",
+    "home": "回到首页",
+    "reference": "错误编号"
   }
 }

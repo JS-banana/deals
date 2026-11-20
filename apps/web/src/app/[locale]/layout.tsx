@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { CompareBar } from '@/components/deals/compare';
 import { Providers } from '@/components/providers';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
@@ -33,7 +34,13 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function LocaleLayout({ children }: { children: React.ReactNode }) {
+export default async function LocaleLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  modal: React.ReactNode;
+}) {
   const locale = await getLocale();
   return (
     <html
@@ -48,7 +55,9 @@ export default async function LocaleLayout({ children }: { children: React.React
             <main id="content" className="flex-1">
               {children}
             </main>
+            {modal}
             <SiteFooter />
+            <CompareBar />
           </Providers>
         </NextIntlClientProvider>
       </body>

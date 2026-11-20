@@ -1,4 +1,4 @@
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { Brand } from './brand';
 
@@ -6,6 +6,7 @@ const REPO = 'https://github.com/JS-banana/deals';
 
 export function SiteFooter() {
   const t = useTranslations('footer');
+  const locale = useLocale();
   return (
     <footer className="mt-16 border-t">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between lg:px-8">
@@ -23,7 +24,10 @@ export function SiteFooter() {
           <Link href="/events" className="hover:text-foreground">
             {t('events')}
           </Link>
-          <a href="/feed.xml" className="hover:text-foreground">
+          <a
+            href={locale === 'en' ? '/en/feed.xml' : '/feed.xml'}
+            className="hover:text-foreground"
+          >
             RSS
           </a>
           <a href={`${REPO}/issues`} className="hover:text-foreground">

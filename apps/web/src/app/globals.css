@@ -11,6 +11,9 @@
   --color-live-foreground: var(--live-foreground);
   --color-soon: var(--soon);
   --color-soon-foreground: var(--soon-foreground);
+  --color-hero: var(--hero);
+  --color-hero-foreground: var(--hero-foreground);
+  --color-logo: var(--logo);
   --color-tint-green: var(--tint-green);
   --color-tint-green-foreground: var(--tint-green-foreground);
   --color-tint-violet: var(--tint-violet);
@@ -94,6 +97,9 @@
   --brand-foreground: oklch(0.235 0.022 155);
   --live: oklch(0.94 0.045 152);
   --live-foreground: oklch(0.42 0.1 152);
+  --hero: oklch(0.27 0.045 155);
+  --hero-foreground: oklch(0.97 0.012 120);
+  --logo: oklch(1 0 0);
   --soon: oklch(0.95 0.055 78);
   --soon-foreground: oklch(0.47 0.11 62);
   --tint-green: oklch(0.94 0.04 145);
@@ -143,6 +149,9 @@
   --brand-foreground: oklch(0.2 0.02 155);
   --live: oklch(0.33 0.06 152);
   --live-foreground: oklch(0.86 0.1 152);
+  --hero: oklch(0.255 0.04 155);
+  --hero-foreground: oklch(0.96 0.012 120);
+  --logo: oklch(0.97 0.006 120);
   --soon: oklch(0.34 0.06 70);
   --soon-foreground: oklch(0.88 0.1 78);
   --tint-green: oklch(0.3 0.05 145);
@@ -182,5 +191,19 @@
   }
   html {
     @apply font-sans;
+    /* Keep focused and anchored elements clear of the sticky header. */
+    scroll-padding-top: 5rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion reset must beat component animations */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion reset must beat component animations */
+      animation-iteration-count: 1 !important;
+      /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion reset must beat component animations */
+      transition-duration: 0.01ms !important;
+    }
   }
 }
