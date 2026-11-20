@@ -25,9 +25,11 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <BrandMark className={compact ? 'size-7' : 'size-9'} />
       <span className="flex flex-col leading-none">
         <span className={compact ? 'font-semibold' : 'text-lg font-semibold'}>{t('siteName')}</span>
-        <span className="mt-1 text-[0.6rem] font-semibold tracking-[0.22em] text-muted-foreground">
-          DEAL INDEX
-        </span>
+        {t('brandSub') && (
+          <span className="mt-1 text-[0.6rem] font-semibold tracking-[0.22em] text-muted-foreground">
+            {t('brandSub')}
+          </span>
+        )}
       </span>
     </Link>
   );

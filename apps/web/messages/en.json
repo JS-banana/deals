@@ -3,7 +3,8 @@
     "siteName": "Deal Index",
     "home": "Deal Index home",
     "title": "Deal Index · Software deals and coupon codes",
-    "description": "A curated index of software deals. Compare real prices, discounts, renewal terms, coupon codes and deadlines, each traceable to its source."
+    "description": "A curated index of software deals. Compare real prices, discounts, renewal terms, coupon codes and deadlines, each traceable to its source.",
+    "brandSub": ""
   },
   "nav": {
     "label": "Main navigation",
