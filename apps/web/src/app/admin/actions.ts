@@ -2,18 +2,21 @@
 
 import { dealSchema, eventSchema, PUBLISH_STATUS, productSchema } from '@deals/core';
 import {
+  and,
   approveProposal,
   dealColumns,
   deals,
+  eq,
   events,
   getDb,
   products,
+  proposals,
   rejectProposal,
 } from '@deals/db';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { getEventRow, getProposal, nextPendingId } from './queries';
+import { getDealWithRefs, getEventRow, getProposal, nextPendingId } from './queries';
 
 export interface FormState {
   error?: string;
@@ -112,14 +115,19 @@ export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise
     if (decision.data === 'dismiss') {
       await rejectProposal(db, id.data, note.data || undefined);
     } else {
-      await db.$client.begin(async (tx) => {
-        const [p] = await tx<{ status: string; kind: string; dealId: number | null }[]>`
-          select status, kind, deal_id as "dealId" from proposals where id = ${id.data} for update`;
+      await db.transaction(async (tx) => {
+        const [p] = await tx
+          .select()
+          .from(proposals)
+          .where(eq(proposals.id, id.data))
+          .for('update');
         if (p?.status !== 'pending' || p.kind !== 'flag' || p.dealId === null)
           throw new Error('提案不是待处理的异常提案，或没有关联优惠。');
-        await tx`update deals set status = 'hidden', updated_at = now() where id = ${p.dealId}`;
-        await tx`update proposals set status = 'approved', reviewed_at = now(),
-          review_note = ${note.data || null} where id = ${id.data}`;
+        await tx.update(deals).set({ status: 'hidden' }).where(eq(deals.id, p.dealId));
+        await tx
+          .update(proposals)
+          .set({ status: 'approved', reviewedAt: new Date(), reviewNote: note.data || null })
+          .where(and(eq(proposals.id, id.data), eq(proposals.status, 'pending')));
       });
     }
   } catch (e) {
@@ -135,7 +143,7 @@ export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise
 export async function setDealStatusAction(fd: FormData) {
   const id = idSchema.parse(text(fd, 'id'));
   const status = z.enum(PUBLISH_STATUS).parse(text(fd, 'status'));
-  await getDb().$client`update deals set status = ${status}, updated_at = now() where id = ${id}`;
+  await getDb().update(deals).set({ status }).where(eq(deals.id, id));
   refresh();
 }
 
@@ -146,25 +154,21 @@ export async function setDealRankAction(fd: FormData) {
     .regex(/^\d{1,7}$/)
     .transform(Number)
     .parse(text(fd, 'rank'));
-  await getDb().$client`update deals set rank = ${rank}, updated_at = now() where id = ${id}`;
+  await getDb().update(deals).set({ rank }).where(eq(deals.id, id));
   refresh();
 }
 
 /**
- * Save `{product, deal}` for an existing deal. Rows are written as upserts keyed by primary key
- * (no drizzle-orm operators available here); a slug owned by another product still fails on the
- * unique constraint. `logoPath` is kept when the edited product omits it.
+ * Save `{product, deal}` for an existing deal in one transaction. A slug owned by another product
+ * fails on the unique constraint. `logoPath` is kept when the edited product omits it.
  */
 export async function saveDealAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const id = idSchema.safeParse(text(fd, 'id'));
   if (!id.success) return { error: '参数无效。' };
   const db = getDb();
-  const row = await db.query.deals.findFirst({ where: (t, { eq }) => eq(t.id, id.data) });
-  if (!row) return { error: '优惠不存在。' };
-  const existing = await db.query.products.findFirst({
-    where: (t, { eq }) => eq(t.id, row.productId),
-  });
-  if (!existing) return { error: '产品不存在。' };
+  const found = await getDealWithRefs(id.data);
+  if (!found) return { error: '优惠不存在。' };
+  const existing = found.product;
 
   const parsed = parseWith(
     z.object({ product: productSchema, deal: dealSchema }),
@@ -178,26 +182,10 @@ export async function saveDealAction(_prev: FormState, fd: FormData): Promise<Fo
   );
   if ('state' in parsed) return parsed.state;
   const { product, deal } = parsed.data;
-  const updatedAt = new Date();
   try {
     await db.transaction(async (tx) => {
-      await tx
-        .insert(products)
-        .values({ id: existing.id, ...product, updatedAt })
-        .onConflictDoUpdate({ target: products.id, set: { ...product, updatedAt } });
-      const columns = dealColumns(deal);
-      await tx
-        .insert(deals)
-        .values({
-          id: row.id,
-          productId: row.productId,
-          eventId: row.eventId,
-          status: row.status,
-          rank: row.rank,
-          ...columns,
-          updatedAt,
-        })
-        .onConflictDoUpdate({ target: deals.id, set: { ...columns, updatedAt } });
+      await tx.update(products).set(product).where(eq(products.id, existing.id));
+      await tx.update(deals).set(dealColumns(deal)).where(eq(deals.id, id.data));
     });
   } catch (e) {
     return { error: describe(e) };
@@ -222,10 +210,7 @@ export async function saveEventAction(_prev: FormState, fd: FormData): Promise<F
     await db.transaction(async (tx) => {
       if (event.featured) await tx.update(events).set({ featured: false });
       if (id?.success) {
-        await tx
-          .insert(events)
-          .values({ id: id.data, ...event })
-          .onConflictDoUpdate({ target: events.id, set: { ...event, updatedAt: new Date() } });
+        await tx.update(events).set(event).where(eq(events.id, id.data));
       } else {
         await tx.insert(events).values(event);
       }
@@ -239,14 +224,10 @@ export async function saveEventAction(_prev: FormState, fd: FormData): Promise<F
 
 export async function featureEventAction(fd: FormData) {
   const id = idSchema.parse(text(fd, 'id'));
-  const row = await getEventRow(id);
-  if (!row) throw new Error('活动不存在');
+  if (!(await getEventRow(id))) throw new Error('活动不存在');
   await getDb().transaction(async (tx) => {
     await tx.update(events).set({ featured: false });
-    await tx
-      .insert(events)
-      .values(row)
-      .onConflictDoUpdate({ target: events.id, set: { featured: true, updatedAt: new Date() } });
+    await tx.update(events).set({ featured: true }).where(eq(events.id, id));
   });
   refresh();
 }
