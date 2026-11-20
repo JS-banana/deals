@@ -145,7 +145,10 @@ export interface PriceParts {
   discount: string | null;
 }
 
-/** Price, billing unit, struck-through original price and the discount chip text. */
+/**
+ * Price, billing unit, struck-through original price and the discount chip text. The unit is dropped
+ * when the plan shown beside the price already says it ("Plus 买断" next to "€29.40 买断").
+ */
 export function priceParts(d: DealView, locale: Locale, t: T): PriceParts {
   const money = (amount: number | null) =>
     amount !== null && d.currency ? formatMoney(amount, d.currency, locale) : null;
@@ -157,24 +160,21 @@ export function priceParts(d: DealView, locale: Locale, t: T): PriceParts {
     const percent = effectiveDiscountPercent(d);
     if (percent && percent > 0) discount = t('off', { percent });
   }
+  const unit = d.billing === 'other' ? null : t(`billing.${d.billing}`);
+  const planSaysUnit = unit && pick(d.plan, locale).toLowerCase().includes(unit.toLowerCase());
   return {
     price: money(d.priceAmount),
     priceSplit:
       d.priceAmount !== null && d.currency ? moneyParts(d.priceAmount, d.currency, locale) : null,
-    unit: d.billing === 'other' ? null : t(`billing.${d.billing}`),
+    unit: planSaysUnit ? null : unit,
     original: money(d.originalAmount),
     discount,
   };
 }
 
-/** One note line: what a shopper most needs to know besides the price. */
-export function cardNote(d: DealView, locale: Locale, t: T): string {
-  return (
-    pick(d.cardNote, locale) ||
-    pick(d.renewal, locale) ||
-    pick(d.eligibility, locale) ||
-    t('noteFallback')
-  );
+/** What a shopper most needs to know besides the price, or null when the deal has no such note. */
+export function cardNote(d: DealView, locale: Locale): string | null {
+  return pick(d.cardNote, locale) || pick(d.renewal, locale) || pick(d.eligibility, locale) || null;
 }
 
 export const logoSrc = (logoPath: string | null) => (logoPath ? `/media/${logoPath}` : null);

@@ -130,7 +130,7 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
           <h2 id="similar-title" className="text-2xl font-semibold">
             {t('similar')}
           </h2>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
             {similar.map((d) => (
               <li key={d.id} className="min-w-0">
                 <DealCard deal={d} now={now} />

@@ -1,6 +1,7 @@
 'use client';
 
-import { Bookmark, Check, Copy, Scale } from 'lucide-react';
+import { Popover } from '@base-ui/react/popover';
+import { Bookmark, Check, Copy, Info, Scale } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -183,5 +184,29 @@ export function CompareToggle({
       />
       {t('compare')}
     </label>
+  );
+}
+
+/** The card's "i" next to the plan: opens the deal note on hover, or on tap where there is no hover. */
+export function NoteHint({ note }: { note: string }) {
+  const t = useTranslations('deal');
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        openOnHover
+        delay={100}
+        aria-label={t('note')}
+        className="relative z-10 -my-1 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:text-foreground"
+      >
+        <Info className="size-3.5" aria-hidden="true" />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="top" sideOffset={6} className="z-50">
+          <Popover.Popup className="max-w-64 origin-(--transform-origin) rounded-lg bg-popover px-3 py-2 text-xs leading-relaxed text-popover-foreground shadow-md ring-1 ring-foreground/10 transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+            {note}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

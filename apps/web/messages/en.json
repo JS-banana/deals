@@ -46,7 +46,7 @@
     "originalPrice": "Original price",
     "off": "{percent}% off",
     "save": "Save {amount}",
-    "noteFallback": "See the merchant's page for details. The checkout price is final.",
+    "note": "Terms to know",
     "badge": {
       "endingPrecise": "Ends within 48 hours",
       "ending": "Ending soon",

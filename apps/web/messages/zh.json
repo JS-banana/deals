@@ -46,7 +46,7 @@
     "originalPrice": "原价",
     "off": "省 {percent}%",
     "save": "省 {amount}",
-    "noteFallback": "详见商家活动页，以结算页价格为准。",
+    "note": "购买须知",
     "badge": {
       "endingPrecise": "48 小时内结束",
       "ending": "即将结束",

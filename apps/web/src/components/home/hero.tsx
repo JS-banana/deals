@@ -27,6 +27,7 @@ function EditorPick({ deal, now }: { deal: DealView; now: Date }) {
   const fmt = useFormatter();
   const locale = toLocale(useLocale());
   const { product } = deal;
+  const note = cardNote(deal, locale);
   return (
     <aside
       aria-label={t('pick')}
@@ -53,9 +54,7 @@ function EditorPick({ deal, now }: { deal: DealView; now: Date }) {
         </div>
       </div>
       <PriceLine parts={priceParts(deal, locale, td)} />
-      <p className="line-clamp-2 hidden text-sm text-muted-foreground lg:block">
-        {cardNote(deal, locale, td)}
-      </p>
+      {note && <p className="line-clamp-2 hidden text-sm text-muted-foreground lg:block">{note}</p>}
       <div className="hidden lg:block">
         <CouponLine deal={deal} />
       </div>

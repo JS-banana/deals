@@ -28,7 +28,10 @@ export function SavedList({ items }: { items: { slug: string; card: ReactNode }[
 
   if (!hydrated) {
     return (
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true">
+      <ul
+        className="grid gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        aria-busy="true"
+      >
         {[0, 1, 2].map((i) => (
           <li key={i}>
             <Skeleton className="h-72 rounded-2xl" />
@@ -85,7 +88,7 @@ export function SavedList({ items }: { items: { slug: string; card: ReactNode }[
           {confirming ? t('clearConfirm') : t('clear')}
         </Button>
       </div>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className="grid gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {list.map(({ slug, card }) => (
           <li key={slug} className="min-w-0">
             {card}

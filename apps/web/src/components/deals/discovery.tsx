@@ -72,7 +72,7 @@ export function Discovery({
         className="transition-opacity group-has-[[data-pending=true]]/discovery:opacity-60"
       >
         {shown.length ? (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="grid gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {shown.map((deal) => (
               <li key={deal.id} className="min-w-0">
                 <DealCard deal={deal} now={now} />

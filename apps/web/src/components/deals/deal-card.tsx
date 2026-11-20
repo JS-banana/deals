@@ -11,30 +11,33 @@ import {
   toLocale,
 } from '@/lib/deal-view';
 import { cn } from '@/lib/utils';
-import { CompareToggle, SaveButton } from './actions';
+import { CompareToggle, NoteHint, SaveButton } from './actions';
 import { CouponChip, DeadlineText, DealBadges, PriceLine, ProductLogo } from './parts';
 
 /**
- * The listing card, kept to six short rows so a desktop screen shows two rows of four.
- * The product name is a stretched link (opens the deal modal or page); compare, save and the
- * coupon chip sit above it with `relative z-10`.
+ * The listing card, top to bottom: the product (name, category, two-line summary), then the offer
+ * (plan label over the price), then the actions bar (deadline and coupon). The offer is pushed to the
+ * bottom so prices line up across a grid row, and exception badges hang over the top border instead
+ * of taking a row. The product name is a stretched link (opens the deal modal or page); the
+ * interactive bits sit above it with `relative z-10`.
  */
 export function DealCard({ deal, now }: { deal: DealView; now: Date }) {
   const locale = toLocale(useLocale());
   const t = useTranslations('deal');
   const fmt = useFormatter();
   const { product } = deal;
-  const price = priceParts(deal, locale, t);
   const badges = exceptionBadges(deal, now);
-  const due = deadline(deal, now, t, fmt);
+  const note = cardNote(deal, locale);
 
   return (
     <article
       className={cn(
-        '@container relative flex h-full flex-col gap-2 rounded-2xl border bg-card p-4 text-card-foreground shadow-xs transition-[border-color,box-shadow] hover:border-foreground/20 hover:shadow-md has-[h3_a:focus-visible]:ring-3 has-[h3_a:focus-visible]:ring-ring/50',
+        '@container relative flex h-full flex-col rounded-2xl border bg-card p-4 text-card-foreground shadow-xs transition-[border-color,box-shadow] hover:border-foreground/20 hover:shadow-md has-[h3_a:focus-visible]:ring-3 has-[h3_a:focus-visible]:ring-ring/50',
         badges.ended && 'bg-muted/40',
       )}
     >
+      <DealBadges badges={badges} className="absolute -top-2.5 left-4 flex-nowrap" />
+
       <header className="flex items-start gap-3">
         <ProductLogo product={product} size="card" />
         <div className="min-w-0 flex-1">
@@ -47,7 +50,7 @@ export function DealCard({ deal, now }: { deal: DealView; now: Date }) {
             </Link>
           </h3>
           <p className="truncate text-xs text-muted-foreground">
-            {categoryName(product.category, locale)} · {pick(deal.plan, locale)}
+            {categoryName(product.category, locale)}
           </p>
         </div>
         <div className="-mt-1 -mr-1.5 flex shrink-0">
@@ -55,14 +58,20 @@ export function DealCard({ deal, now }: { deal: DealView; now: Date }) {
           <SaveButton slug={product.slug} name={product.name} className="size-9" />
         </div>
       </header>
+      <p className="mt-2.5 line-clamp-2 text-sm text-muted-foreground">
+        {pick(product.summary, locale)}
+      </p>
 
-      <DealBadges badges={badges} />
-      <p className="truncate text-sm text-muted-foreground">{pick(product.summary, locale)}</p>
-      <PriceLine parts={price} />
-      <p className="truncate text-sm text-muted-foreground">{cardNote(deal, locale, t)}</p>
+      <div className="mt-auto pt-3">
+        <p className="flex min-w-0 items-center gap-0.5 text-xs text-muted-foreground">
+          <span className="truncate">{pick(deal.plan, locale)}</span>
+          {note && <NoteHint note={note} />}
+        </p>
+        <PriceLine parts={priceParts(deal, locale, t)} className="mt-1.5" />
+      </div>
 
-      <footer className="mt-auto flex items-center justify-between gap-3 pt-1">
-        <DeadlineText due={due} className="text-xs" compact />
+      <footer className="mt-3 flex items-center justify-between gap-3 border-t border-dashed pt-3">
+        <DeadlineText due={deadline(deal, now, t, fmt)} className="text-xs" compact />
         <CouponChip deal={deal} />
       </footer>
     </article>

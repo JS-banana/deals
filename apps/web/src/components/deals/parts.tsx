@@ -70,11 +70,19 @@ export function ProductLogo({
  * cents set smaller, followed by the billing unit, struck-through original price and discount chip.
  * Screen readers get the plain formatted price.
  */
-export function PriceLine({ parts, size = 'md' }: { parts: PriceParts; size?: 'md' | 'lg' }) {
+export function PriceLine({
+  parts,
+  size = 'md',
+  className,
+}: {
+  parts: PriceParts;
+  size?: 'md' | 'lg';
+  className?: string;
+}) {
   const t = useTranslations('deal');
   const split = parts.priceSplit;
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+    <p className={cn('flex flex-wrap items-baseline gap-x-2 gap-y-1', className)}>
       {split && parts.price ? (
         <span
           className={cn(
@@ -153,12 +161,15 @@ export function CouponChip({ deal }: { deal: DealView }) {
   );
 }
 
-/** Exception-only badges: ending soon, upcoming, ended, community-sourced. */
-export function DealBadges({ badges }: { badges: ExceptionBadges }) {
+/**
+ * Exception-only badges: ending soon, upcoming, ended, community-sourced. Every badge has a solid
+ * background so cards can hang them over their top border.
+ */
+export function DealBadges({ badges, className }: { badges: ExceptionBadges; className?: string }) {
   const t = useTranslations('deal.badge');
   if (!badges.ending && !badges.upcoming && !badges.ended && !badges.community) return null;
   return (
-    <ul className="flex flex-wrap gap-1.5">
+    <ul className={cn('flex flex-wrap gap-1.5', className)}>
       {badges.ending && (
         <li>
           <Badge className="bg-soon text-soon-foreground">
@@ -181,7 +192,7 @@ export function DealBadges({ badges }: { badges: ExceptionBadges }) {
       )}
       {badges.community && (
         <li>
-          <Badge variant="outline" className="text-muted-foreground">
+          <Badge variant="outline" className="bg-card text-muted-foreground">
             <Users aria-hidden="true" />
             {t('community')}
           </Badge>

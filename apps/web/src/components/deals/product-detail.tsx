@@ -74,6 +74,7 @@ export function DealPanel({ deal, now }: { deal: DealView; now: Date }) {
   const fmt = useFormatter();
   const locale = toLocale(useLocale());
   const badges = exceptionBadges(deal, now);
+  const note = cardNote(deal, locale);
   return (
     <section
       aria-label={t('panel')}
@@ -84,7 +85,7 @@ export function DealPanel({ deal, now }: { deal: DealView; now: Date }) {
           {pick(deal.event.name, locale)} · {pick(deal.plan, locale)}
         </p>
         <PriceLine parts={priceParts(deal, locale, td)} size="lg" />
-        <p className="text-sm text-muted-foreground">{cardNote(deal, locale, td)}</p>
+        {note && <p className="text-sm text-muted-foreground">{note}</p>}
       </div>
       <DealBadges badges={badges} />
       <CouponLine deal={deal} />
