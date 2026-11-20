@@ -3,8 +3,10 @@
     "siteName": "好价清单",
     "home": "好价清单首页",
     "title": "好价清单 · 软件优惠与折扣码",
-    "description": "中文软件优惠目录。按用途比较实付价格、折扣、续费条件、优惠码和截止日期，每条活动都可追溯来源。",
-    "brandSub": "DEAL INDEX"
+    "description": "中文软件优惠目录，收录黑五（Black Friday）、网一（Cyber Monday）等大促的软件折扣。按用途比较实付价格、续费条件、优惠码和截止日期，每条活动都可追溯来源。",
+    "brandSub": "DEAL INDEX",
+    "seasonTitle": "{event}软件优惠与折扣码",
+    "keywords": "软件优惠,软件折扣,优惠码,折扣码,黑五,黑色星期五,Black Friday,网一,Cyber Monday,终身买断,Mac 软件优惠,正版软件"
   },
   "nav": {
     "label": "主导航",
@@ -148,7 +150,9 @@
       "ended": "已结束"
     },
     "dealCount": "{count} 条有效优惠",
-    "open": "查看优惠"
+    "open": "查看优惠",
+    "metaTitle": "{name}软件优惠汇总",
+    "metaDescription": "{name}软件优惠汇总，收录 {count} 款软件的折扣、优惠码与截止日期。{tagline}"
   },
   "topics": {
     "title": "按主题浏览",
@@ -195,7 +199,9 @@
     "lowest": "最低",
     "highest": "最高",
     "similar": "同类软件",
-    "viewFull": "查看完整页面"
+    "viewFull": "查看完整页面",
+    "metaTitleEvent": "{name} {event}优惠与折扣码",
+    "metaKeywords": "{name},{name} 优惠码,{name} 折扣码,{name} 优惠"
   },
   "saved": {
     "title": "我的收藏",

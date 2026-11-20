@@ -22,6 +22,13 @@ export function alternatesFor(path: string, locale: Locale): Metadata['alternate
   };
 }
 
+/** Keywords meta from a comma-separated message. Google ignores it; Baidu and Bing still read it. */
+export const keywordList = (text: string) =>
+  text
+    .split(',')
+    .map((word) => word.trim())
+    .filter(Boolean);
+
 export function JsonLd({ data }: { data: object }) {
   return (
     <script

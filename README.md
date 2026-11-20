@@ -2,7 +2,9 @@
 
 [deals.laifuyou.com](https://deals.laifuyou.com) · 中文 / [English](https://deals.laifuyou.com/en)
 
-全球软件优惠目录。按用途比较实付价格、折扣、续费条件、优惠码和截止日期，每条优惠都能追溯到来源。数据每天自动更新：AI 提取中文文案、翻译英文，人工审核后发布。
+全球软件优惠目录，收录黑五（Black Friday）、网一（Cyber Monday）等大促和常年优惠。按用途比较实付价格、折扣、续费条件、优惠码和截止日期，每条优惠都能追溯到来源。数据每天自动更新：AI 提取中文文案、翻译英文，人工审核后发布。
+
+> **English.** Deal Index is a bilingual (Chinese / English) index of software deals: Black Friday, Cyber Monday and evergreen offers on Mac apps, AI tools, developer tools and SaaS. Every deal lists the real price, discount, renewal terms, coupon code and deadline, linked to its source. An AI pipeline collects, verifies and translates deals daily, and new deals are reviewed before they go live. Built with Next.js, Tailwind CSS, shadcn/ui, PostgreSQL and Drizzle, self-hosted with Docker Compose. The rest of this README is in Chinese.
 
 ## 架构
 

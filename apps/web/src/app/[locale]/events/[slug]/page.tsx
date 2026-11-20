@@ -6,18 +6,30 @@ import { Discovery, parsePage } from '@/components/deals/discovery';
 import { EventHero } from '@/components/events/event-parts';
 import { Breadcrumbs } from '@/components/site/breadcrumbs';
 import { getEvents, getLang, getNow, getPublishedDeals } from '@/lib/data';
-import { alternatesFor } from '@/lib/seo';
+import { alternatesFor, keywordList } from '@/lib/seo';
 
 export async function generateMetadata(
   props: PageProps<'/[locale]/events/[slug]'>,
 ): Promise<Metadata> {
   const { slug } = await props.params;
-  const [events, locale] = await Promise.all([getEvents(), getLang()]);
+  const [events, deals, locale, t] = await Promise.all([
+    getEvents(),
+    getPublishedDeals(),
+    getLang(),
+    getTranslations(),
+  ]);
   const event = events.find((e) => e.slug === slug);
   if (!event) return {};
+  const name = pick(event.name, locale);
+  const count = deals.filter((d) => d.event.slug === slug).length;
   return {
-    title: pick(event.name, locale),
-    description: pick(event.tagline, locale),
+    title: t('events.metaTitle', { name }),
+    description: t('events.metaDescription', {
+      name,
+      count,
+      tagline: pick(event.tagline, locale),
+    }),
+    keywords: [name, ...keywordList(t('meta.keywords'))],
     alternates: alternatesFor(`/events/${slug}`, locale),
   };
 }

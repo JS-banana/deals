@@ -8,6 +8,7 @@ import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
 import { routing } from '@/i18n/routing';
 import { siteUrl } from '@/lib/data';
+import { keywordList } from '@/lib/seo';
 import '../globals.css';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
@@ -23,6 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(siteUrl()),
     title: { default: t('title'), template: `%s · ${t('siteName')}` },
     description: t('description'),
+    keywords: keywordList(t('keywords')),
     applicationName: t('siteName'),
     openGraph: {
       type: 'website',

@@ -3,8 +3,10 @@
     "siteName": "Deal Index",
     "home": "Deal Index home",
     "title": "Deal Index · Software deals and coupon codes",
-    "description": "A curated index of software deals. Compare real prices, discounts, renewal terms, coupon codes and deadlines, each traceable to its source.",
-    "brandSub": ""
+    "description": "Curated software deals from Black Friday, Cyber Monday and other sales: real prices, renewal terms, coupon codes and deadlines, each traceable to its source.",
+    "brandSub": "",
+    "seasonTitle": "{event} Software Deals",
+    "keywords": "software deals,Black Friday software deals,Cyber Monday software deals,coupon codes,discount codes,lifetime deals,Mac app deals,SaaS deals"
   },
   "nav": {
     "label": "Main navigation",
@@ -148,7 +150,9 @@
       "ended": "Ended"
     },
     "dealCount": "{count, plural, one {# active deal} other {# active deals}}",
-    "open": "View deals"
+    "open": "View deals",
+    "metaTitle": "{name} Software Deals",
+    "metaDescription": "{count, plural, one {# software deal} other {# software deals}} for {name}, with coupon codes and deadlines. {tagline}"
   },
   "topics": {
     "title": "Browse by topic",
@@ -195,7 +199,9 @@
     "lowest": "Lowest",
     "highest": "Highest",
     "similar": "Similar software",
-    "viewFull": "Open full page"
+    "viewFull": "Open full page",
+    "metaTitleEvent": "{name} {event} deal and coupon code",
+    "metaKeywords": "{name},{name} coupon code,{name} discount,{name} deal"
   },
   "saved": {
     "title": "Saved deals",

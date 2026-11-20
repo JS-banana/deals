@@ -21,7 +21,7 @@ import {
   siteUrl,
 } from '@/lib/data';
 import { categoryName, deadline, logoSrc, mainDeal, priceParts } from '@/lib/deal-view';
-import { alternatesFor, JsonLd, pageUrl } from '@/lib/seo';
+import { alternatesFor, JsonLd, keywordList, pageUrl } from '@/lib/seo';
 
 export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params;
@@ -50,10 +50,21 @@ export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): 
   ]
     .filter(Boolean)
     .join(' | ');
-  const title = t('metaTitle', { name: deal.product.name });
+  const name = deal.product.name;
+  const event = pick(deal.event.name, locale);
+  // Seasonal deals put the sale in the title, matching searches like "TablePro black friday".
+  const title =
+    deal.event.kind === 'seasonal'
+      ? t('metaTitleEvent', { name, event })
+      : t('metaTitle', { name });
   return {
     title,
     description,
+    keywords: [
+      ...keywordList(t('metaKeywords', { name })),
+      event,
+      categoryName(deal.product.category, locale),
+    ],
     alternates: alternatesFor(`/p/${slug}`, locale),
     openGraph: { title, description },
   };
