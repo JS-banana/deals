@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "siteName": "Deal Index",
+    "home": "Deal Index home",
+    "title": "Deal Index · Software deals and coupon codes",
+    "description": "A curated index of software deals. Compare real prices, discounts, renewal terms, coupon codes and deadlines, each traceable to its source."
+  },
+  "nav": {
+    "label": "Main navigation",
+    "skip": "Skip to content",
+    "discover": "Discover",
+    "ending": "Ending soon",
+    "events": "Events",
+    "about": "How we curate",
+    "saved": "Saved",
+    "menu": "Menu",
+    "switchLanguage": "Switch to Chinese",
+    "toggleTheme": "Toggle dark mode"
+  },
+  "footer": {
+    "label": "Site information",
+    "tagline": "Software discounts from around the world, with prices, renewals, eligibility and sources spelled out.",
+    "about": "How we curate",
+    "events": "All events",
+    "feedback": "Report an issue"
+  }
+}

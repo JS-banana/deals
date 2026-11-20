@@ -2,11 +2,28 @@
   "name": "deal-index",
   "private": true,
   "type": "module",
-  "scripts": {
-    "build": "node scripts/build.mjs"
-  },
+  "packageManager": "pnpm@12.21.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
-  "license": "MIT"
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "start": "pnpm --filter web start",
+    "worker": "pnpm --filter worker start",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "db:up": "docker compose -f compose.yaml -f compose.dev.yaml up -d db",
+    "db:generate": "pnpm --filter @deals/db generate",
+    "db:migrate": "pnpm --filter @deals/db migrate",
+    "db:seed": "pnpm --filter @deals/db seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "^24",
+    "typescript": "^5",
+    "vitest": "5.1.1"
+  }
 }

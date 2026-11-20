@@ -1,0 +1,5 @@
+# Local development: expose Postgres on loopback only.
+services:
+  db:
+    ports:
+      - "127.0.0.1:54329:5432"
