@@ -29,10 +29,8 @@ python3 -m http.server 8000 --bind 127.0.0.1 --directory .preview
 
 ## 发布
 
-源码在本仓库维护。公开的 [GitHub Pages 仓库](https://github.com/JS-banana/deals) 保存构建结果，发布源是 `main` 根目录。内容更新提交后，使用已登录、对发布仓库有推送权限的 GitHub CLI 运行：
+推送到 `main` 后，GitHub Actions 会执行 `npm run build`，并将 `dist/` 部署到本站的 GitHub Pages。可在 [部署记录](https://github.com/JS-banana/deals/actions/workflows/pages.yml) 查看结果或重新运行。
 
-```sh
-./scripts/publish.sh
-```
+## 许可证
 
-脚本重新构建、更新生成文件并推送。有并发推送冲突时，Git 会拒绝覆盖远端更新。上线后可从 Pages 构建记录确认发布，再检查首页、独立详情页和 `/deals/sitemap.xml`。
+项目源码采用 [MIT 许可证](LICENSE)。各商家的产品名称、商标与活动条款归各自权利人所有。优惠数据中的出处可用于核对原始活动。
