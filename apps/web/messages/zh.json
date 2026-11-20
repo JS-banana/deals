@@ -62,7 +62,9 @@
       "copyShort": "复制",
       "copyFailed": "复制失败，请手动选择优惠码",
       "auto": "无需优惠码 · 自动优惠",
-      "unknown": "优惠码未公布"
+      "unknown": "优惠码未公布",
+      "autoShort": "自动优惠",
+      "unknownShort": "暂无优惠码"
     },
     "deadline": {
       "ended": "已结束",

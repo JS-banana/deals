@@ -10,7 +10,7 @@ import {
   type PriceParts,
 } from '@/lib/deal-view';
 import { cn } from '@/lib/utils';
-import { CopyCode } from './actions';
+import { CodeChip, CopyCode } from './actions';
 
 type LogoProduct = Pick<DealView['product'], 'name' | 'category' | 'logoPath'>;
 
@@ -20,11 +20,12 @@ export function ProductLogo({
   size = 'md',
 }: {
   product: LogoProduct;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'card' | 'md' | 'lg';
 }) {
   const src = logoSrc(product.logoPath);
   const box = {
     sm: 'size-7 rounded-md text-xs',
+    card: 'size-10 rounded-lg text-base',
     md: 'size-12 rounded-xl text-lg',
     lg: 'size-16 rounded-2xl text-2xl',
   }[size];
@@ -116,6 +117,23 @@ export function CouponLine({ deal, className }: { deal: DealView; className?: st
   );
 }
 
+/** Compact coupon state for cards: copyable code chip, "auto-applied", or "no code yet". */
+export function CouponChip({ deal }: { deal: DealView }) {
+  const t = useTranslations('deal.code');
+  if (deal.code) return <CodeChip code={deal.code} />;
+  return (
+    <span
+      className={cn(
+        'inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs',
+        deal.noCode ? 'bg-live text-live-foreground' : 'text-muted-foreground',
+      )}
+    >
+      {deal.noCode && <BadgeCheck className="size-3.5" aria-hidden="true" />}
+      {deal.noCode ? t('autoShort') : t('unknownShort')}
+    </span>
+  );
+}
+
 /** Exception-only badges: ending soon, upcoming, ended, community-sourced. */
 export function DealBadges({ badges }: { badges: ExceptionBadges }) {
   const t = useTranslations('deal.badge');
@@ -161,13 +179,29 @@ const TONE: Record<Deadline['tone'], string> = {
 };
 
 /** Relative deadline with the matching absolute date. */
-export function DeadlineText({ due, className }: { due: Deadline; className?: string }) {
+export function DeadlineText({
+  due,
+  className,
+  compact = false,
+}: {
+  due: Deadline;
+  className?: string;
+  /** Inside a narrow `@container` card, drop the absolute date instead of truncating it. */
+  compact?: boolean;
+}) {
   return (
     <p className={cn('flex min-w-0 items-center gap-1.5 text-sm', className)}>
       <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className={cn('shrink-0 font-medium tabular-nums', TONE[due.tone])}>{due.primary}</span>
       {due.secondary && (
-        <span className="truncate text-muted-foreground tabular-nums">· {due.secondary}</span>
+        <span
+          className={cn(
+            'truncate text-muted-foreground tabular-nums',
+            compact && 'hidden @[21rem]:inline',
+          )}
+        >
+          · {due.secondary}
+        </span>
       )}
     </p>
   );

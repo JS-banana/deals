@@ -1,6 +1,6 @@
 'use client';
 
-import { Bookmark, Check, Copy } from 'lucide-react';
+import { Bookmark, Check, Copy, Scale } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -56,6 +56,43 @@ export function CopyCode({ code, className }: { code: string; className?: string
   );
 }
 
+/** Card-sized coupon: a dashed chip that copies the code on click. */
+export function CodeChip({ code }: { code: string }) {
+  const t = useTranslations('deal.code');
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      toast.success(t('copied', { code }));
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error(t('copyFailed'));
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={t('copy', { code })}
+      title={t('copy', { code })}
+      className="relative z-10 inline-flex h-8 max-w-[72%] min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-dashed border-input bg-muted/50 px-2 transition-colors outline-none hover:border-ring hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <code className="truncate font-mono text-xs font-semibold">{code}</code>
+      {copied ? (
+        <Check className="size-3.5 shrink-0 text-live-foreground" aria-hidden="true" />
+      ) : (
+        <Copy className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
 /** Bookmark toggle backed by localStorage; `aria-pressed` carries the state. */
 export function SaveButton({
   slug,
@@ -103,13 +140,34 @@ export function SaveButton({
   );
 }
 
-/** Adds the deal to the comparison tray (max three). */
-export function CompareToggle({ row }: { row: CompareRow }) {
+/** Adds the deal to the comparison tray (max three): a labelled checkbox, or an icon toggle on cards. */
+export function CompareToggle({
+  row,
+  variant = 'label',
+}: {
+  row: CompareRow;
+  variant?: 'label' | 'icon';
+}) {
   const t = useTranslations('actions');
   const rows = useCompare();
   const checked = rows.some((r) => r.slug === row.slug);
   const full = !checked && rows.length >= COMPARE_MAX;
   const id = useId();
+  if (variant === 'icon') {
+    return (
+      <button
+        type="button"
+        aria-pressed={checked}
+        aria-label={t('compareLabel', { name: row.name })}
+        title={full ? t('compareFull', { max: COMPARE_MAX }) : t('compare')}
+        disabled={full}
+        onClick={() => toggleCompare(row)}
+        className="relative z-10 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground"
+      >
+        <Scale className="size-4.5" aria-hidden="true" />
+      </button>
+    );
+  }
   return (
     <label
       htmlFor={id}
