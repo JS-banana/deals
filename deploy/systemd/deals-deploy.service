@@ -1,0 +1,7 @@
+[Unit]
+Description=Deploy Deal Index from origin/main when CI is green
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/projects/deals
+ExecStart=%h/projects/deals/deploy/deploy.sh

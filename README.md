@@ -1,36 +1,84 @@
 # 好价清单 · Deal Index
 
-[打开网站](https://js-banana.github.io/deals/)
+[deals.laifuyou.com](https://deals.laifuyou.com) · 中文 / [English](https://deals.laifuyou.com/en)
 
-中文黑五软件优惠目录。首页按用途、活动时间和购买条件筛选，可复制优惠码、在本地收藏，并列对比最多三项。每条优惠都有独立详情地址、商家入口和原始出处。
+全球软件优惠目录。按用途比较实付价格、折扣、续费条件、优惠码和截止日期，每条优惠都能追溯到来源。数据每天自动更新：AI 起草提取和翻译，人工审核后发布。
 
-## 本地运行
+## 架构
 
-使用 Node.js 20 或更新版本，无需安装依赖。在项目根目录运行：
-
-```sh
-npm run build
-mkdir -p .preview
-ln -sfn ../dist .preview/deals
-python3 -m http.server 8000 --bind 127.0.0.1 --directory .preview
+```
+apps/
+  web/        Next.js 16（App Router）+ Tailwind CSS 4 + shadcn/ui + next-intl（中文默认，/en 英文）
+              公开站点、/admin 审核后台、/media 产品图标、RSS、站点地图
+  worker/     数据管线：上游同步 → 抓取商家页 → AI 提取 → 规则校验 → 提案；复查、翻译、图标、定时任务
+packages/
+  core/       领域模型与规则：zod 数据格式、活动状态与时区、筛选排序、金额格式（含单元测试）
+  db/         Drizzle 表结构、迁移、查询、审核发布事务、初始数据
+deploy/       服务器部署：拉取式自动部署、数据库备份、systemd 定时器、nginx 站点
+compose.yaml  生产环境：postgres + migrate + web + worker
 ```
 
-访问 `http://127.0.0.1:8000/deals/`。构建结果位于 `dist/`，路径与 GitHub Pages 项目站一致。
+三类核心数据：**产品**（长期存在，积累历年优惠）、**活动**（黑五网一、常年优惠……）、**优惠**（某产品在某活动中的报价）。价格以金额、币种和计费周期存储，展示时按语言格式化。
 
-## 更新优惠
+worker 不直接改动已发布数据：新增、变更和异常都以**提案**形式进入 `/admin` 审核队列，附带字段差异和原文证据，通过后才会发布。
 
-编辑 `data/deals.json`。数组顺序即编辑排序，第一条用于首页精选。先核对商家当季活动，再保存当前社区记录的固定提交和行链接。实际金额使用原币，预扣税、首期优惠、续费、地区和用户限制分别说明。仅有折扣时可以只记录折扣。
+## 本地开发
 
-- `verified` 表示已在 `merchant` 对应的商家页面核实当季活动。社区收录保留 `source`，核对日期为 `checked`。
-- `start`、`end` 为发布方自然日。精确时刻用带偏移的 `startsAt`、`endsAt`，只有日期但知道地区时可补 IANA 时区 `dateZone`。没公布开始日、但当日已在商家价格页看到有效报价，可记录 `observedLive`。
-- `oneTime`、`existing` 只在有依据时开启。`noCode` 表示明确免码；其余缺失信息保留为空。`cardNote` 可用一句话提炼购买条件，详情页保留完整条款。
+需要 Node.js 22.18+（推荐 24）、pnpm 12 和 Docker。
 
-构建会校验标识、分类和链接，并生成静态首页、分类、专题、详情、站点地图和分享元数据。即使关闭 JavaScript，产品价格、条款、来源和商家链接也可阅读。
+```sh
+pnpm install
+cp .env.example .env          # 填写 POSTGRES_PASSWORD、DATABASE_URL、MEDIA_DIR（绝对路径）等
+pnpm db:up                    # 启动本地 Postgres（127.0.0.1:54329）
+set -a && . ./.env && set +a
+pnpm db:migrate && pnpm db:seed
+pnpm dev                      # http://localhost:3000，后台在 /admin
+```
 
-## 发布
+常用命令：`pnpm lint`（Biome）、`pnpm typecheck`、`pnpm test`（Vitest）、`pnpm build`。修改 `packages/db/src/schema.ts` 后运行 `pnpm db:generate` 生成迁移。
 
-推送到 `main` 后，GitHub Actions 会执行 `npm run build`，并将 `dist/` 部署到本站的 GitHub Pages。可在 [部署记录](https://github.com/JS-banana/deals/actions/workflows/pages.yml) 查看结果或重新运行。
+## 数据管线
+
+在 `apps/worker` 下运行 `node src/main.ts <job>`，需要先加载 `.env`：
+
+| 任务 | 作用 |
+|---|---|
+| `sync-upstream` | 从社区清单同步新条目，抓取商家页，用 AI 提取结构化字段和中英文文案，校验后提交审核 |
+| `recheck` | 复查已发布优惠的商家页：记录价格历史；有变化时提交更新提案，失效时提交异常提案 |
+| `translate` | 为已发布内容补齐英文 |
+| `logos` | 下载产品图标 |
+| `daily` | 依次执行以上任务 |
+| `schedule` | 常驻进程：每天 06:10 执行 `daily`，14:10、22:10 执行 `recheck`（北京时间） |
+
+模型通过兼容 OpenAI 的 `/chat/completions` 接口调用（`LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`），智谱 GLM 和 DeepSeek 都可以。
+
+## 部署
+
+服务器上的目录为 `~/projects/deals`，`.env` 只保存在服务器上，权限为 600。
+
+```sh
+git clone https://github.com/JS-banana/deals.git ~/projects/deals && cd ~/projects/deals
+cp .env.example .env && chmod 600 .env   # 填写生产配置
+docker compose up -d --build
+docker compose run --rm migrate node packages/db/src/seed.ts   # 首次部署导入初始数据
+```
+
+- **自动部署**：`deals-deploy.timer` 每 3 分钟检查一次 `origin/main`，对应提交的 CI 通过后构建并重启；健康检查失败会回滚到上一个版本。手动执行：`deploy/deploy.sh --force`。
+- **备份**：`deals-backup.timer` 每天 04:30 导出数据库到 `~/backups/deals`，保留 14 天。
+- **对外访问**：web 只监听 `127.0.0.1:3100`，由 nginx（`deploy/nginx/`）和 certbot 提供 HTTPS，前面是 Cloudflare。
+
+安装定时器：
+
+```sh
+cp deploy/systemd/*.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now deals-deploy.timer deals-backup.timer
+```
+
+## 反馈
+
+价格变化、链接失效或想推荐优惠，请提交 [Issue](https://github.com/JS-banana/deals/issues)。
 
 ## 许可证
 
-项目源码采用 [MIT 许可证](LICENSE)。各商家的产品名称、商标与活动条款归各自权利人所有。优惠数据中的出处可用于核对原始活动。
+源码采用 [MIT 许可证](LICENSE)。各商家的产品名称、商标和活动条款归各自权利人所有。

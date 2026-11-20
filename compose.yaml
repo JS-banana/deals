@@ -1,5 +1,16 @@
 name: deals
 
+# Production stack. Secrets and settings come from .env next to this file (see .env.example).
+# Only the web container is reachable, on 127.0.0.1:${WEB_PORT}; nginx on the host terminates TLS.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+x-database-url: &database-url postgres://deals:${POSTGRES_PASSWORD}@db:5432/deals
+
 services:
   db:
     image: postgres:18-alpine
@@ -15,6 +26,69 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    mem_limit: 512m
+    logging: *logging
+
+  # One-shot: applies pending migrations before web and worker start.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: deals-worker
+    command: ["node", "packages/db/src/migrate.ts"]
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: deals-web
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *database-url
+      SITE_URL: ${SITE_URL:?set SITE_URL in .env}
+      MEDIA_DIR: /data/media
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3100}:3000"
+    volumes:
+      - media:/data/media:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    mem_limit: 768m
+    logging: *logging
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: deals-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *database-url
+      SITE_URL: ${SITE_URL}
+      MEDIA_DIR: /data/media
+      LLM_BASE_URL: ${LLM_BASE_URL:?set LLM_BASE_URL in .env}
+      LLM_API_KEY: ${LLM_API_KEY:?set LLM_API_KEY in .env}
+      LLM_MODEL: ${LLM_MODEL:?set LLM_MODEL in .env}
+      LLM_EXTRA_BODY: ${LLM_EXTRA_BODY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - media:/data/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    mem_limit: 512m
+    logging: *logging
 
 volumes:
   pgdata:
+  media:
