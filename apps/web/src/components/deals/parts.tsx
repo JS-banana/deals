@@ -86,7 +86,7 @@ export function PriceLine({
       {split && parts.price ? (
         <span
           className={cn(
-            'leading-none font-bold tracking-tight tabular-nums',
+            'leading-none font-bold tracking-tight text-price tabular-nums',
             size === 'lg' ? 'text-5xl' : 'text-[2rem]',
           )}
         >
