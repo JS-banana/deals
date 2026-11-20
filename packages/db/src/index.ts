@@ -14,6 +14,8 @@ import * as schema from './schema.ts';
 import { deals, events, priceObservations, products, proposals } from './schema.ts';
 
 export * from './schema.ts';
+// Query operators re-exported so apps share this package's drizzle-orm instance.
+export { and, asc, count, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 
 export function createDb(url = process.env.DATABASE_URL) {
   if (!url) throw new Error('DATABASE_URL is not set');
