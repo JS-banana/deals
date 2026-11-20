@@ -13,7 +13,8 @@ RUN pnpm install --frozen-lockfile --prod --filter "worker..." --filter "@deals/
 FROM node:24-alpine AS runtime
 WORKDIR /repo
 ENV NODE_ENV=production TZ=Asia/Shanghai
-RUN apk add --no-cache tzdata && addgroup -S app && adduser -S app -G app
+RUN apk add --no-cache tzdata && addgroup -S app && adduser -S app -G app \
+  && mkdir -p /data/media && chown app:app /data/media
 COPY --from=deps /repo ./
 COPY tsconfig.base.json ./
 COPY packages/core packages/core

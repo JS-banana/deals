@@ -316,26 +316,49 @@ export function FilterBar({
   );
 }
 
-function LoadMoreLabel({ children }: { children: ReactNode }) {
+function LoadMoreLabel({ children, busy }: { children: ReactNode; busy: boolean }) {
   const { pending } = useLinkStatus();
   return (
     <>
-      {pending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+      {(pending || busy) && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
       {children}
     </>
   );
 }
 
-/** A plain link to `?page=n+1`, so it works without JavaScript. */
+/**
+ * Loads the next page automatically when the button scrolls near the viewport (infinite scroll).
+ * It stays a plain link to `?page=n+1`, so it still works without JavaScript or as a manual click.
+ */
 export function LoadMore({ href, children }: { href: string; children: ReactNode }) {
+  const router = useRouter();
+  const [busy, startTransition] = useTransition();
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || busy) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        startTransition(() => router.replace(href, { scroll: false }));
+      },
+      { rootMargin: '0px 0px 600px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [href, busy, router]);
   return (
-    <Link
-      href={href}
-      scroll={false}
-      replace
-      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border bg-card px-6 text-sm font-medium transition-colors hover:bg-muted"
-    >
-      <LoadMoreLabel>{children}</LoadMoreLabel>
-    </Link>
+    <div ref={sentinel}>
+      <Link
+        href={href}
+        scroll={false}
+        replace
+        aria-busy={busy}
+        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border bg-card px-6 text-sm font-medium transition-colors hover:bg-muted"
+      >
+        <LoadMoreLabel busy={busy}>{children}</LoadMoreLabel>
+      </Link>
+    </div>
   );
 }

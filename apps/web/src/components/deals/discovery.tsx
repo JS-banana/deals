@@ -99,7 +99,7 @@ export function Discovery({
       </div>
       {shown.length < matches.length && (
         <div className="flex flex-col items-center gap-2 pt-2">
-          <p className="text-sm text-muted-foreground tabular-nums">
+          <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
             {t('shown', { shown: shown.length, total: matches.length })}
           </p>
           <LoadMore href={query({ page: String(page + 1) })}>{t('more')}</LoadMore>
