@@ -194,6 +194,13 @@ describe('mergeVolatile (field diff)', () => {
     expect(result.changes).toEqual([]);
   });
 
+  it('keeps the published English when the recheck returns the same zh without English', () => {
+    const before = deal({ terms: { zh: '年付 $39。', en: 'Billed annually at $39.' } });
+    const result = mergeVolatile(before, { terms: { zh: '年付 $39。', en: '' } });
+    expect(result.changes).toEqual([]);
+    expect(result.deal.terms.en).toBe('Billed annually at $39.');
+  });
+
   it('ignores rewording that keeps every number, but notices changed facts', () => {
     const before = deal({ terms: { zh: '年付 $39，含 3 台设备。', en: '' } });
     expect(

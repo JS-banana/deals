@@ -204,3 +204,31 @@ export const syncState = pgTable('sync_state', {
   value: jsonb('value').$type<unknown>().notNull(),
   updatedAt: updatedAt(),
 });
+
+/**
+ * Translation memory, zh -> en. One row per distinct source text (hash of the normalized zh), so
+ * a repeated text is translated once. A field's English is fresh while it equals the row for its
+ * current zh; the worker's translate job is the only writer.
+ */
+export const translations = pgTable(
+  'translations',
+  {
+    id: serial('id').primaryKey(),
+    sourceLang: text('source_lang').notNull().default('zh'),
+    targetLang: text('target_lang').notNull().default('en'),
+    sourceHash: text('source_hash').notNull(),
+    sourceText: text('source_text').notNull(),
+    targetText: text('target_text').notNull(),
+    model: text('model').notNull(),
+    promptVersion: text('prompt_version').notNull(),
+    glossaryVersion: text('glossary_version').notNull(),
+    /** Reviewer score 0-100 at the time it was published. */
+    score: integer('score').notNull(),
+    issues: jsonb('issues').$type<string[]>().notNull().default([]),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('translations_source').on(t.sourceLang, t.targetLang, t.sourceHash),
+    index('translations_target').on(t.targetLang, t.targetText),
+  ],
+);

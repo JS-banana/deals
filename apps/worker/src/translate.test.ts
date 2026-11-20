@@ -1,25 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { keepsFacts } from './translate.ts';
+import { decide, normalizeSource, sourceHash } from './translate.ts';
 
-describe('keepsFacts', () => {
-  const item = {
-    zh: '年付首年 $23.40，此后每年 $39。代码 BFCM2026，含 3 年更新。',
-    product: 'TablePro',
-  };
-  it('accepts a translation that keeps numbers and codes', () => {
-    expect(
-      keepsFacts(
-        item,
-        'First year $23.40, then $39 a year. Code BFCM2026, includes 3 years of updates.',
-      ),
-    ).toBe(true);
+describe('source hash', () => {
+  it('ignores whitespace and Unicode form, not wording', () => {
+    expect(sourceHash('Pro 买断 · 3 台设备')).toBe(sourceHash('  Pro  买断 ·\n3 台设备 '));
+    expect(sourceHash('é')).toBe(sourceHash('é'));
+    expect(sourceHash('Pro 买断')).not.toBe(sourceHash('Pro 年付'));
+    expect(normalizeSource(' a \t b ')).toBe('a b');
+    expect(sourceHash('x')).toMatch(/^[0-9a-f]{64}$/);
   });
-  it('lets a Chinese month number become a month name', () => {
-    expect(keepsFacts({ zh: '12 月 7 日结束', product: 'X' }, 'Ends December 7')).toBe(true);
+});
+
+describe('decide (freshness rule)', () => {
+  const tm = { targetText: 'Pro lifetime license', score: 92 };
+  const hash = 'h-now';
+
+  it('translates empty English, or reuses a memory hit without a model call', () => {
+    expect(decide({ hash, en: '' }, undefined, undefined, false)).toBe('translate');
+    expect(decide({ hash, en: '  ' }, tm, undefined, false)).toBe('reuse');
   });
-  it('rejects altered numbers, lost codes and leaked Chinese', () => {
-    expect(keepsFacts(item, 'First year $23, then $39. Code BFCM2026, 3 years.')).toBe(false);
-    expect(keepsFacts(item, 'First year $23.40, then $39. Code BF2026, 3 years.')).toBe(false);
-    expect(keepsFacts(item, '首年 $23.40, then $39. Code BFCM2026, 3 years.')).toBe(false);
+
+  it('treats English equal to the memory text for the current zh as fresh', () => {
+    expect(decide({ hash, en: 'Pro lifetime license' }, tm, new Set([hash]), false)).toBe('fresh');
+    expect(decide({ hash, en: 'Pro lifetime license' }, tm, new Set([hash]), true)).toBe('fresh');
+  });
+
+  it('retranslates English we produced for an older zh', () => {
+    expect(decide({ hash, en: 'Old text' }, undefined, new Set(['h-old']), false)).toBe(
+      'translate',
+    );
+    expect(decide({ hash, en: 'Old text' }, tm, new Set(['h-old']), false)).toBe('reuse');
+  });
+
+  it('keeps human or pre-memory English unless refreshing', () => {
+    expect(decide({ hash, en: 'Hand written' }, undefined, undefined, false)).toBe('keep');
+    expect(decide({ hash, en: 'Hand written' }, tm, undefined, false)).toBe('keep');
+    expect(decide({ hash, en: 'Hand written' }, undefined, undefined, true)).toBe('translate');
+    expect(decide({ hash, en: 'Hand written' }, tm, undefined, true)).toBe('reuse');
+  });
+
+  it('does not reuse a memory row below the publish score', () => {
+    expect(decide({ hash, en: '' }, { targetText: 'x', score: 40 }, undefined, false)).toBe(
+      'translate',
+    );
   });
 });

@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { zodParse } from './llm.ts';
 import { EXTRACT_SYSTEM, extractUser } from './prompts.ts';
 import { type Ctx, type Job, saveSnapshot, today } from './runtime.ts';
+import { translatePayload } from './translate.ts';
 import {
   type Catalog,
   cleanMerchantUrl,
@@ -28,7 +29,12 @@ import { checkDates, pickEvent, stripUnverified, verifyEvidence } from './verify
 const LLM_TEXT_CHARS = 40_000;
 const MIN_CONFIDENCE = 0.3;
 
-const both = z.object({ zh: z.string().trim().min(1), en: z.string().trim().min(1) });
+/** The model writes Chinese only; English is left empty for the translate job. */
+const both = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((zh) => ({ zh, en: '' }));
 const optional = <T extends z.ZodType>(schema: T) => schema.nullish().transform((v) => v ?? null);
 
 /** What the model returns; the pipeline fills in slug, website, URLs, `verified` and `checkedOn`. */
@@ -121,7 +127,7 @@ export async function extractCandidate(
   const host = hostOf(merchantUrl);
   const websiteOf = () => (isSharedHost(host) ? null : new URL(merchantUrl).origin);
 
-  const extraction = await ctx.llm.json({
+  const extraction = await ctx.extractLlm.json({
     system: EXTRACT_SYSTEM,
     user: extractUser(day, entry, {
       url: page.url,
@@ -198,9 +204,11 @@ export async function extractCandidate(
     );
     return { status: 'proposal', filed: true };
   }
+  // English is produced here, before filing, so approving publishes both languages at once.
+  const finished = await translatePayload(ctx, product, deal);
   const id = await fileProposal(ctx.db, {
     kind: 'create',
-    payload: { product, event, deal },
+    payload: { product: finished.product, event, deal: finished.deal },
     changes: [],
     evidence,
     reason,

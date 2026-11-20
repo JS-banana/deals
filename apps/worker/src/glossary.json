@@ -1,0 +1,83 @@
+{
+  "version": "1",
+  "entries": [
+    {
+      "zh": "买断",
+      "en": ["lifetime license", "one-time purchase"],
+      "note": "Edition names: \"Pro lifetime license\". Use \"one-time purchase\" when the point is paying once instead of subscribing."
+    },
+    { "zh": "终身授权", "en": ["lifetime license"] },
+    { "zh": "终身版", "en": ["lifetime"], "note": "\"the Lifetime plan/version\"" },
+    { "zh": "首年", "en": ["first year"] },
+    {
+      "zh": "年付",
+      "en": ["annual plan", "billed annually", "annual"],
+      "note": "Plan labels: \"Solo annual plan\"; billing statements: \"billed annually\". Avoid \"yearly\"."
+    },
+    { "zh": "月付", "en": ["monthly plan", "billed monthly", "monthly"] },
+    { "zh": "老用户", "en": ["existing customers"] },
+    { "zh": "现有用户", "en": ["existing customers"] },
+    { "zh": "现有订户", "en": ["existing subscribers"] },
+    { "zh": "新用户", "en": ["new customers"] },
+    { "zh": "新客户", "en": ["new customers"] },
+    { "zh": "新订户", "en": ["new subscribers"] },
+    { "zh": "订户", "en": ["subscriber"] },
+    { "zh": "订阅", "en": ["subscription", "subscribe"] },
+    {
+      "zh": "未税",
+      "en": ["excl. VAT", "excl. tax"],
+      "note": "Use \"excl. VAT\" when the zh also says VAT/增值税, otherwise \"excl. tax\"."
+    },
+    { "zh": "不含税", "en": ["excl. VAT", "excl. tax"] },
+    { "zh": "税前", "en": ["excl. tax", "before tax"] },
+    { "zh": "增值税", "en": ["VAT"] },
+    {
+      "zh": "优惠码",
+      "en": ["coupon code"],
+      "note": "Canonical term; a later mention in the same text may say \"the code\"."
+    },
+    { "zh": "折扣码", "en": ["coupon code"] },
+    {
+      "zh": "无需优惠码",
+      "en": ["no code needed", "no coupon code needed", "applied automatically"]
+    },
+    { "zh": "自动应用", "en": ["automatically"], "note": "\"applied automatically\"" },
+    {
+      "zh": "自动带入",
+      "en": ["automatically", "prefill"],
+      "note": "\"applied automatically\" or \"prefilled\""
+    },
+    { "zh": "预填", "en": ["prefill"], "note": "prefilled / prefills" },
+    { "zh": "续费", "en": ["renewal", "renews at", "renew"] },
+    {
+      "zh": "更新",
+      "en": ["update"],
+      "note": "Software updates: \"3 years of updates\", \"update period\"."
+    },
+    { "zh": "设备", "en": ["device"] },
+    { "zh": "席位", "en": ["seat"] },
+    { "zh": "团队版", "en": ["Team plan", "Team"] },
+    { "zh": "应用内购买", "en": ["in-app purchase"] },
+    { "zh": "应用内购", "en": ["in-app purchase"] },
+    { "zh": "礼品卡", "en": ["gift card"] },
+    { "zh": "教育优惠", "en": ["education discount"] },
+    { "zh": "活动价", "en": ["sale price"] },
+    { "zh": "原价", "en": ["regular price", "list price", "originally"] },
+    { "zh": "常规定价", "en": ["regular price", "regular pricing"] },
+    { "zh": "不参加", "en": ["excluded", "not eligible", "not included"] },
+    { "zh": "结算页", "en": ["checkout"] },
+    { "zh": "结账", "en": ["checkout", "check out"] },
+    { "zh": "黑五", "en": ["Black Friday"] },
+    { "zh": "网一", "en": ["Cyber Monday"] },
+    { "zh": "社区清单", "en": ["community list"] },
+    { "zh": "官网", "en": ["official site", "website", "official"] },
+    { "zh": "商家", "en": ["merchant", "vendor"] },
+    { "zh": "活动页", "en": ["sale page"] },
+    { "zh": "定价页", "en": ["pricing page"] },
+    { "zh": "免费版", "en": ["free plan", "free version"] },
+    { "zh": "按比例", "en": ["prorated", "pro rata"] },
+    { "zh": "不能叠加", "en": ["cannot be combined", "can't be combined", "cannot be stacked"] },
+    { "zh": "美国太平洋时间", "en": ["US Pacific time"] },
+    { "zh": "最低消费", "en": ["minimum spend", "minimum"] }
+  ]
+}

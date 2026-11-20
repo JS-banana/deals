@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { zodParse } from './llm.ts';
 import { RECHECK_SYSTEM, recheckUser } from './prompts.ts';
 import { type Ctx, type Job, saveSnapshot, today } from './runtime.ts';
+import { translatePayload } from './translate.ts';
 import { bump, errorMessage, mapPool, sha256 } from './util.ts';
 import {
   codeAppears,
@@ -25,7 +26,12 @@ const LLM_TEXT_CHARS = 40_000;
 /** Bot walls answer these; they say nothing about the page being gone. */
 const SOFT_STATUSES = new Set([403, 429]);
 
-const both = z.object({ zh: z.string().trim().min(1), en: z.string().trim() });
+/** The model writes Chinese only; an unchanged zh keeps its published English because `mergeVolatile` only replaces a field whose zh differs. */
+const both = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((zh) => ({ zh, en: '' }));
 const isoDay = z.iso.date();
 const instant = z.iso.datetime({ offset: true });
 const zone = z.string().refine((value) => {
@@ -174,8 +180,14 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
   }
 
   bump(stats, 'changed');
-  const current = Object.fromEntries(VOLATILE_FIELDS.map((f) => [f, before[f]]));
-  const result = await ctx.llm.json({
+  // The model only sees (and writes) the Chinese of the editorial fields.
+  const current = Object.fromEntries(
+    VOLATILE_FIELDS.map((f) => {
+      const value = before[f];
+      return [f, value !== null && typeof value === 'object' ? value.zh : value];
+    }),
+  );
+  const result = await ctx.extractLlm.json({
     system: RECHECK_SYSTEM,
     user: recheckUser(day, current, {
       url: page.url,
@@ -241,15 +253,18 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
   if (ctx.dryRun) {
     ctx.log(`  ${JSON.stringify(proposed.changes)}`);
   } else {
+    // Rewritten editorial fields arrive as zh only; translate them now so approval publishes both.
+    const finished = await translatePayload(ctx, productSchema.parse(view.product), valid.data);
+    const changes = proposed.changes.map((change) =>
+      change.field === 'terms' || change.field === 'renewal' || change.field === 'eligibility'
+        ? { ...change, after: finished.deal[change.field] }
+        : change,
+    );
     const id = await fileProposal(db, {
       kind: 'update',
       dealId: view.id,
-      payload: {
-        product: productSchema.parse(view.product),
-        event: view.event.slug,
-        deal: valid.data,
-      },
-      changes: proposed.changes,
+      payload: { product: finished.product, event: view.event.slug, deal: finished.deal },
+      changes,
       evidence: kept,
       reason: `商家页内容变化，重新抽取后字段不同：${fields}`,
       confidence,

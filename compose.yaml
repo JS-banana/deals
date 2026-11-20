@@ -80,6 +80,10 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:?set LLM_API_KEY in .env}
       LLM_MODEL: ${LLM_MODEL:?set LLM_MODEL in .env}
       LLM_EXTRA_BODY: ${LLM_EXTRA_BODY:-}
+      TRANSLATE_BASE_URL: ${TRANSLATE_BASE_URL:-}
+      TRANSLATE_API_KEY: ${TRANSLATE_API_KEY:-}
+      TRANSLATE_MODEL: ${TRANSLATE_MODEL:-}
+      TRANSLATE_EXTRA_BODY: ${TRANSLATE_EXTRA_BODY:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - media:/data/media
