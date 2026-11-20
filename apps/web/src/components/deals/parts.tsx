@@ -100,7 +100,7 @@ export function PriceLine({
       ) : (
         <span
           className={cn(
-            'leading-none font-bold tracking-tight text-live-foreground',
+            'leading-none font-bold tracking-tight text-price',
             size === 'lg' ? 'text-4xl' : 'text-2xl',
           )}
         >
@@ -117,7 +117,7 @@ export function PriceLine({
         </s>
       )}
       {parts.price && parts.discount && (
-        <span className="inline-flex h-6 items-center self-center rounded-full bg-brand px-2.5 text-xs font-semibold text-brand-foreground">
+        <span className="inline-flex h-6 items-center self-center rounded-full bg-discount px-2.5 text-xs font-semibold text-discount-foreground">
           {parts.discount}
         </span>
       )}

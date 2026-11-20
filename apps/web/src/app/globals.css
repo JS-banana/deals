@@ -7,6 +7,8 @@
 @theme inline {
   --color-brand: var(--brand);
   --color-price: var(--price);
+  --color-discount: var(--discount);
+  --color-discount-foreground: var(--discount-foreground);
   --color-brand-foreground: var(--brand-foreground);
   --color-live: var(--live);
   --color-live-foreground: var(--live-foreground);
@@ -72,8 +74,8 @@
 
 /*
  * Brand: deep forest green + lime. All colors are tokens; components never hard-code hex values.
- * `brand` is the lime highlight (prices, primary CTA on dark), `live`/`soon` are deal-state colors,
- * `tint-*` are the soft category tiles.
+ * `brand` is the lime highlight (logo, primary CTA on dark), `price` the shop-red price with the
+ * matching soft `discount` chip, `live`/`soon` are deal-state colors, `tint-*` are the soft category tiles.
  */
 :root {
   --background: oklch(0.978 0.004 165);
@@ -96,6 +98,8 @@
   --ring: oklch(0.6 0.13 128);
   --brand: oklch(0.945 0.2 120);
   --price: oklch(0.58 0.21 30);
+  --discount: oklch(0.95 0.035 30);
+  --discount-foreground: oklch(0.5 0.19 30);
   --brand-foreground: oklch(0.235 0.022 155);
   --live: oklch(0.94 0.045 152);
   --live-foreground: oklch(0.42 0.1 152);
@@ -149,6 +153,8 @@
   --ring: oklch(0.75 0.15 125);
   --brand: oklch(0.92 0.19 120);
   --price: oklch(0.72 0.17 35);
+  --discount: oklch(0.33 0.08 30);
+  --discount-foreground: oklch(0.86 0.09 35);
   --brand-foreground: oklch(0.2 0.02 155);
   --live: oklch(0.33 0.06 152);
   --live-foreground: oklch(0.86 0.1 152);
