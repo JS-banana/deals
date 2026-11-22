@@ -9,15 +9,17 @@ export const localePath = (path: string, locale: Locale) => getPathname({ href: 
 /** Absolute URL of a page in a given locale. */
 export const pageUrl = (path: string, locale: Locale) => siteUrl(localePath(path, locale));
 
+/** Language variants used in both the document head and the XML sitemap. */
+export function languageAlternates(path: string) {
+  const zh = pageUrl(path, 'zh');
+  return { 'zh-CN': zh, en: pageUrl(path, 'en'), 'x-default': zh };
+}
+
 /** Canonical URL, hreflang alternates and the RSS feed link for a page. */
 export function alternatesFor(path: string, locale: Locale): Metadata['alternates'] {
   return {
     canonical: localePath(path, locale),
-    languages: {
-      'zh-CN': localePath(path, 'zh'),
-      en: localePath(path, 'en'),
-      'x-default': localePath(path, 'zh'),
-    },
+    languages: languageAlternates(path),
     types: { 'application/rss+xml': locale === 'en' ? '/en/feed.xml' : '/feed.xml' },
   };
 }

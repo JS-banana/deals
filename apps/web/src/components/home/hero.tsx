@@ -15,8 +15,8 @@ import {
 import { localePath } from '@/lib/seo';
 
 const QUICK_LINKS = [
-  { href: '/?category=ai#results', key: 'ai', icon: Sparkles },
-  { href: '/?lifetime=1#results', key: 'lifetime', icon: InfinityIcon },
+  { href: '/category/ai', key: 'ai', icon: Sparkles },
+  { href: '/topics/lifetime', key: 'lifetime', icon: InfinityIcon },
   { href: '/?existing=1#results', key: 'existing', icon: UserCheck },
 ] as const;
 
@@ -78,8 +78,10 @@ export function Hero({
 }) {
   const t = useTranslations('hero');
   const tp = useTranslations('events.phase');
+  const meta = useTranslations('meta');
   const locale = toLocale(useLocale());
   const phase = event ? eventPhase(event, now) : null;
+  const title = event ? pick(event.name, locale) : t('genericTitle');
   return (
     <section
       aria-labelledby="hero-title"
@@ -99,10 +101,21 @@ export function Hero({
               </p>
             )}
             <h1 id="hero-title" className="text-4xl font-semibold text-balance sm:text-5xl">
-              {event ? pick(event.name, locale) : t('genericTitle')}
+              {event?.kind === 'seasonal' ? meta('seasonTitle', { event: title }) : title}
             </h1>
             <p className="max-w-2xl text-base text-hero-foreground/75 text-pretty">
               {event ? pick(event.tagline, locale) : t('genericText')}
+              {event && (
+                <>
+                  {' '}
+                  <Link
+                    href={`/events/${event.slug}`}
+                    className="rounded-sm underline underline-offset-4 hover:text-hero-foreground"
+                  >
+                    {t('viewEvent', { event: title })}
+                  </Link>
+                </>
+              )}
             </p>
           </div>
           {event && <EventDates event={event} now={now} variant="hero" showRange={false} />}

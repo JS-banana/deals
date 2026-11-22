@@ -123,6 +123,7 @@
     "more": "Show more"
   },
   "hero": {
+    "viewEvent": "Explore {event}",
     "pick": "Editor's pick",
     "genericTitle": "Software deals, spelled out",
     "genericText": "Compare real prices, renewal terms, coupon codes and deadlines. Every deal names its source.",

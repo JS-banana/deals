@@ -1,25 +1,22 @@
 'use client';
 
 import { Languages } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
-import { Link, usePathname } from '@/i18n/navigation';
+import { getPathname, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
-/** Switches language while keeping the current path and query. */
+/** Link directly to the other language and carry over the current filters. */
 export function LocaleSwitch({ className }: { className?: string }) {
   const locale = useLocale();
   const pathname = usePathname();
-  // Read the query after hydration so static pages need no Suspense boundary for useSearchParams.
-  const [search, setSearch] = useState('');
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-read the query whenever the route changes
-  useEffect(() => setSearch(window.location.search.slice(1)), [pathname]);
+  const search = useSearchParams().toString();
   const t = useTranslations('nav');
   const next = locale === 'zh' ? 'en' : 'zh';
+  const path = getPathname({ href: pathname, locale: next });
   return (
-    <Link
-      href={search ? `${pathname}?${search}` : pathname}
-      locale={next}
+    <a
+      href={search ? `${path}?${search}` : path}
       className={cn(
         'inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
         className,
@@ -29,6 +26,6 @@ export function LocaleSwitch({ className }: { className?: string }) {
     >
       <Languages className="size-4" aria-hidden="true" />
       <span>{next === 'zh' ? '中文' : 'EN'}</span>
-    </Link>
+    </a>
   );
 }

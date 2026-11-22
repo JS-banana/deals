@@ -1,4 +1,5 @@
-import { useTranslations } from 'next-intl';
+import { connection } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Brand } from './brand';
 import { LocaleSwitch } from './locale-switch';
@@ -7,8 +8,10 @@ import { NAV_ITEMS } from './nav-items';
 import { SavedLink } from './saved-link';
 import { ThemeToggle } from './theme-toggle';
 
-export function SiteHeader() {
-  const t = useTranslations('nav');
+export async function SiteHeader() {
+  // The language switch includes the request's query in its server-rendered href.
+  await connection();
+  const t = await getTranslations('nav');
   return (
     <>
       <a

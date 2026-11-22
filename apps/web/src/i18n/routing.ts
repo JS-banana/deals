@@ -7,4 +7,6 @@ export const routing = defineRouting({
   // developers run English systems, and crawlers should always see the same page per URL.
   localePrefix: 'as-needed',
   localeDetection: false,
+  // Page metadata and the sitemap already identify the canonical language variants.
+  alternateLinks: false,
 });

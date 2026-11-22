@@ -123,6 +123,7 @@
     "more": "显示更多"
   },
   "hero": {
+    "viewEvent": "查看{event}活动",
     "pick": "编辑精选",
     "genericTitle": "软件优惠，一次看清",
     "genericText": "按用途比较实付价格、续费条件、优惠码和截止日期。每条活动都标明来源。",

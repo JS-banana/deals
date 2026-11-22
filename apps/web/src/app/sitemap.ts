@@ -1,7 +1,7 @@
 import { CATEGORIES, LOCALES, TOPICS } from '@deals/core';
 import type { MetadataRoute } from 'next';
-import { getEvents, getPublishedDeals, siteUrl } from '@/lib/data';
-import { localePath } from '@/lib/seo';
+import { getEvents, getPublishedDeals } from '@/lib/data';
+import { languageAlternates, pageUrl } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,15 +23,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return paths.flatMap((path) =>
     LOCALES.map((locale) => ({
-      url: siteUrl(localePath(path, locale)),
+      url: pageUrl(path, locale),
       // A merchant price check does not date edits, translations or removals on a catalog page.
       ...(path === '/about' && { lastModified: new Date(ABOUT_UPDATED) }),
-      alternates: {
-        languages: {
-          'zh-CN': siteUrl(localePath(path, 'zh')),
-          en: siteUrl(localePath(path, 'en')),
-        },
-      },
+      alternates: { languages: languageAlternates(path) },
     })),
   );
 }

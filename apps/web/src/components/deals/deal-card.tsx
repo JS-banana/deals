@@ -50,7 +50,12 @@ export function DealCard({ deal, now }: { deal: DealView; now: Date }) {
             </Link>
           </h3>
           <p className="truncate text-xs text-muted-foreground">
-            {categoryName(product.category, locale)}
+            <Link
+              href={`/category/${product.category}`}
+              className="relative z-10 rounded-sm underline-offset-2 hover:underline focus-visible:underline"
+            >
+              {categoryName(product.category, locale)}
+            </Link>
           </p>
         </div>
         <div className="-mt-1 -mr-1.5 flex shrink-0">

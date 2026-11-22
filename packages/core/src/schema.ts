@@ -150,7 +150,7 @@ export interface TopicInfo {
 export const TOPICS: readonly TopicInfo[] = [
   {
     slug: 'developers',
-    title: { zh: '独立开发者工具箱', en: 'Indie developer toolkit' },
+    title: { zh: '独立开发者工具优惠', en: 'Indie developer toolkit' },
     text: {
       zh: '开发、测试、部署的实用工具与服务。',
       en: 'Tools and services for building, testing and shipping.',
@@ -159,7 +159,7 @@ export const TOPICS: readonly TopicInfo[] = [
   },
   {
     slug: 'lifetime',
-    title: { zh: '少一笔订阅负担', en: 'Fewer subscriptions' },
+    title: { zh: '买断制软件优惠', en: 'Fewer subscriptions' },
     text: {
       zh: '有买断选项的软件，集中比较授权条件。',
       en: 'Software you can buy once, with license terms side by side.',
@@ -168,7 +168,7 @@ export const TOPICS: readonly TopicInfo[] = [
   },
   {
     slug: 'creators',
-    title: { zh: '创作者的灵感清单', en: 'Picks for creators' },
+    title: { zh: '设计与创作工具优惠', en: 'Picks for creators' },
     text: {
       zh: '写作、设计与内容创作的效率工具。',
       en: 'Tools for writing, design and content creation.',

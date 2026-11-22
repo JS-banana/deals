@@ -45,6 +45,7 @@ export function catalogPages(deals: DealView[], events: DealEvent[], now: Date):
   addPage('/', [
     eventCards.find(({ featured, card }) => featured && card.phase !== 'ended')?.card,
     active,
+    TOPICS.map(({ slug, title, text }) => ({ slug, title, text })),
   ]);
   addPage(
     '/events',
