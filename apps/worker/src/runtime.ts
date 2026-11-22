@@ -8,6 +8,9 @@ export interface Config {
   databaseUrl: string | undefined;
   mediaDir: string | undefined;
   githubToken: string | undefined;
+  /** Public origin, for IndexNow submissions. */
+  siteUrl: string | undefined;
+  indexNowKey: string | undefined;
   /** Extraction and recheck. */
   llm: LlmConfig;
   /** Translation: TRANSLATE_* when all three are set, otherwise the same provider as `llm`. */
@@ -41,6 +44,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl: env.DATABASE_URL,
     mediaDir: env.MEDIA_DIR,
     githubToken: env.GITHUB_TOKEN || undefined,
+    siteUrl: env.SITE_URL || undefined,
+    indexNowKey: env.INDEXNOW_KEY || undefined,
     llm,
     translate,
   };

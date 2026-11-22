@@ -8,41 +8,24 @@ export const dynamic = 'force-dynamic';
 /** Date of the last human content review of the About page. */
 const ABOUT_UPDATED = '2026-11-20';
 
-/** ISO dates sort as strings, so the newest is the last one. */
-const latest = (days: string[]) => new Date([...days].sort().at(-1) ?? '1970-01-01');
-
 /** Every public page in both languages, each with its hreflang alternates. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [deals, events] = await Promise.all([getPublishedDeals(), getEvents()]);
-  const checked = (list: typeof deals) => list.map((d) => d.checkedOn);
-  const all = latest(checked(deals));
-
-  const pages: { path: string; lastModified: Date }[] = [
-    { path: '/', lastModified: all },
-    { path: '/events', lastModified: all },
-    { path: '/about', lastModified: new Date(ABOUT_UPDATED) },
-    ...events.map((e) => ({
-      path: `/events/${e.slug}`,
-      lastModified: latest(checked(deals.filter((d) => d.event.slug === e.slug))),
-    })),
-    ...CATEGORIES.map((c) => ({
-      path: `/category/${c.slug}`,
-      lastModified: latest(checked(deals.filter((d) => d.product.category === c.slug))),
-    })),
-    ...TOPICS.map((topic) => ({
-      path: `/topics/${topic.slug}`,
-      lastModified: latest(checked(deals.filter(topic.match))),
-    })),
-    ...[...Map.groupBy(deals, (d) => d.product.slug)].map(([slug, list]) => ({
-      path: `/p/${slug}`,
-      lastModified: latest(checked(list)),
-    })),
+  const paths = [
+    '/',
+    '/events',
+    '/about',
+    ...events.map((e) => `/events/${e.slug}`),
+    ...CATEGORIES.map((c) => `/category/${c.slug}`),
+    ...TOPICS.map((topic) => `/topics/${topic.slug}`),
+    ...Array.from(new Set(deals.map((d) => d.product.slug)), (slug) => `/p/${slug}`),
   ];
 
-  return pages.flatMap(({ path, lastModified }) =>
+  return paths.flatMap((path) =>
     LOCALES.map((locale) => ({
       url: siteUrl(localePath(path, locale)),
-      lastModified,
+      // A merchant price check does not date edits, translations or removals on a catalog page.
+      ...(path === '/about' && { lastModified: new Date(ABOUT_UPDATED) }),
       alternates: {
         languages: {
           'zh-CN': siteUrl(localePath(path, 'zh')),

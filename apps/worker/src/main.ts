@@ -1,5 +1,6 @@
 import { Cron } from 'croner';
 import { syncUpstream } from './extract.ts';
+import { indexNow } from './indexnow.ts';
 import { logos } from './logos.ts';
 import { recheck } from './recheck.ts';
 import { createRuntime, type Job, type JobOptions, log, type Runtime, runJob } from './runtime.ts';
@@ -11,9 +12,10 @@ const JOBS: Record<string, Job> = {
   logos,
   'sync-upstream': syncUpstream,
   recheck,
+  indexnow: indexNow,
 };
 
-const USAGE = `usage: node src/main.ts <translate|translate-eval|logos|sync-upstream|recheck|daily|schedule> [--limit N] [--dry-run]
+const USAGE = `usage: node src/main.ts <translate|translate-eval|logos|sync-upstream|recheck|indexnow|daily|schedule> [--limit N] [--dry-run]
   translate [--limit N] [--refresh] [--dry-run]
   translate-eval [--sample N]`;
 
@@ -55,6 +57,8 @@ async function schedule(rt: Runtime) {
     new Cron('10 14,22 * * *', { timezone, protect: true, name: 'recheck' }, track('recheck')),
     // A no-op unless a field has no English or its Chinese changed since it was translated.
     new Cron('40 * * * *', { timezone, protect: true, name: 'translate' }, track('translate')),
+    // After translate, so new English reaches search engines within the hour.
+    new Cron('55 * * * *', { timezone, protect: true, name: 'indexnow' }, track('indexnow')),
   ];
   for (const cron of crons)
     log('schedule', `${cron.name} next at ${cron.nextRun()?.toISOString()}`);

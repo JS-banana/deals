@@ -32,26 +32,28 @@ worker 不直接改动已发布数据：新增、变更和异常都以**提案**
 pnpm install
 cp .env.example .env          # 填写 POSTGRES_PASSWORD、DATABASE_URL、MEDIA_DIR（绝对路径）等
 pnpm db:up                    # 启动本地 Postgres（127.0.0.1:54329）
-set -a && . ./.env && set +a
 pnpm db:migrate && pnpm db:seed
 pnpm dev                      # http://localhost:3000，后台在 /admin
 ```
+
+`pnpm dev`、`pnpm worker`、`pnpm db:migrate`、`pnpm db:seed` 会自动读取根目录的 `.env`，不用手动导出环境变量。
 
 常用命令：`pnpm lint`（Biome）、`pnpm typecheck`、`pnpm test`（Vitest）、`pnpm build`。修改 `packages/db/src/schema.ts` 后运行 `pnpm db:generate` 生成迁移。
 
 ## 数据管线
 
-在 `apps/worker` 下运行 `node src/main.ts <job>`，需要先加载 `.env`：
+运行 `pnpm worker <job>`（如 `pnpm worker translate --dry-run`）：
 
-| 任务             | 作用                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------- |
-| `sync-upstream`  | 从社区清单同步新条目，抓取商家页，用 AI 提取结构化字段和中文文案，翻译英文，校验后提交审核              |
-| `recheck`        | 复查已发布优惠的商家页：记录价格历史；有变化时提交更新提案，失效时提交异常提案                          |
-| `translate`      | 为缺英文或中文已变化的字段生成英文（`--limit N`、`--refresh`、`--dry-run`）                             |
-| `translate-eval` | 抽样评估翻译质量，不写库（`--sample N`，默认 15）                                                       |
-| `logos`          | 下载产品图标                                                                                            |
-| `daily`          | 依次执行以上任务                                                                                        |
-| `schedule`       | 常驻进程：每天 06:10 执行 `daily`，14:10、22:10 执行 `recheck`，每小时 :40 执行 `translate`（北京时间） |
+| 任务             | 作用                                                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `sync-upstream`  | 从社区清单同步新条目，抓取商家页，用 AI 提取结构化字段和中文文案，翻译英文，校验后提交审核                                   |
+| `recheck`        | 复查已发布优惠的商家页：记录价格历史；有变化时提交更新提案，失效时提交异常提案                                               |
+| `translate`      | 为缺英文或中文已变化的字段生成英文（`--limit N`、`--refresh`、`--dry-run`）                                                  |
+| `translate-eval` | 抽样评估翻译质量，不写库（`--sample N`，默认 15）                                                                            |
+| `logos`          | 下载产品图标                                                                                                                 |
+| `indexnow`       | 将公开优惠和活动的变化通知 Bing 等支持 IndexNow 的搜索引擎。`--dry-run` 可在未配置密钥时预览待推送的网址                     |
+| `daily`          | 依次执行翻译、下载图标、同步上游和复查                                                                                       |
+| `schedule`       | 常驻进程：每天 06:10 执行 `daily`，14:10、22:10 执行 `recheck`，每小时 :40 执行 `translate`、:55 执行 `indexnow`（北京时间） |
 
 模型通过兼容 OpenAI 的 `/chat/completions` 接口调用（`LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`），智谱 GLM 和 DeepSeek 都可以。
 
@@ -83,6 +85,7 @@ docker compose run --rm migrate node packages/db/src/seed.ts   # 首次部署导
 - **自动部署**：`deals-deploy.timer` 每 3 分钟检查一次 `origin/main`，对应提交的 CI 通过后构建并重启；健康检查失败会回滚到上一个版本。手动执行：`deploy/deploy.sh --force`。
 - **备份**：`deals-backup.timer` 每天 04:30 导出数据库到 `~/backups/deals`，保留 14 天。
 - **对外访问**：web 只监听 `127.0.0.1:3100`，由 nginx（`deploy/nginx/`）和 certbot 提供 HTTPS，前面是 Cloudflare。
+- **IndexNow**：用 `openssl rand -hex 16` 生成 `INDEXNOW_KEY` 并写入生产 `.env`。web 在根路径 `/<key>.txt` 提供验证文件。worker 首次提交中英文公开网址，以后每小时提交有变化或已下架的网址。提交结果可在 worker 日志中查看。
 
 安装定时器：
 

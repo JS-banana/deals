@@ -5,7 +5,17 @@ import { routing } from './i18n/routing';
 const handleI18n = createMiddleware(routing);
 
 export default function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === '/admin' || request.nextUrl.pathname.startsWith('/admin/')) {
+  const path = request.nextUrl.pathname;
+  if (path.endsWith('.txt')) {
+    const key = process.env.INDEXNOW_KEY;
+    if (key && path === `/${key}.txt` && ['GET', 'HEAD'].includes(request.method)) {
+      return new Response(request.method === 'HEAD' ? null : key, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+    return NextResponse.next();
+  }
+  if (path === '/admin' || path.startsWith('/admin/')) {
     return adminGate(request);
   }
   return handleI18n(request);
@@ -44,6 +54,6 @@ function safeEqual(a: string, b: string) {
 }
 
 export const config = {
-  // Everything except API routes, Next internals, served media and files with an extension.
-  matcher: ['/((?!api|_next|_vercel|media|.*\\..*).*)'],
+  // Public and admin pages, plus root-level IndexNow ownership files.
+  matcher: ['/((?!api|_next|_vercel|media|.*\\..*).*)', '/:key([A-Za-z0-9-]{8,128}).txt'],
 };

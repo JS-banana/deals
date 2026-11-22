@@ -1,4 +1,4 @@
-import type { Deal } from './schema.ts';
+import type { Deal, DealEvent } from './schema.ts';
 
 /** Calendar used when a deal only publishes dates and no time zone. */
 export const SITE_TIME_ZONE = 'Asia/Shanghai';
@@ -19,6 +19,19 @@ export function calendarDay(now: Date, zone: string = SITE_TIME_ZONE): string {
     dayFormats.set(zone, format);
   }
   return format.format(now);
+}
+
+export type EventPhase = 'upcoming' | 'live' | 'ended';
+
+export function eventPhase(
+  e: Pick<DealEvent, 'kind' | 'startsOn' | 'endsOn'>,
+  now: Date,
+): EventPhase {
+  if (e.kind === 'evergreen') return 'live';
+  const today = calendarDay(now);
+  if (e.endsOn && today > e.endsOn) return 'ended';
+  if (e.startsOn && today < e.startsOn) return 'upcoming';
+  return 'live';
 }
 
 type Timing = Pick<

@@ -9,8 +9,8 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "generate": "drizzle-kit generate",
-    "migrate": "node src/migrate.ts",
-    "seed": "node src/seed.ts"
+    "migrate": "node --env-file-if-exists=../../.env src/migrate.ts",
+    "seed": "node --env-file-if-exists=../../.env src/seed.ts"
   },
   "dependencies": {
     "@deals/core": "workspace:*",

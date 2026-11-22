@@ -55,6 +55,7 @@ services:
     environment:
       DATABASE_URL: *database-url
       SITE_URL: ${SITE_URL:?set SITE_URL in .env}
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       MEDIA_DIR: /data/media
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
@@ -77,6 +78,7 @@ services:
     environment:
       DATABASE_URL: *database-url
       SITE_URL: ${SITE_URL}
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       MEDIA_DIR: /data/media
       LLM_BASE_URL: ${LLM_BASE_URL:?set LLM_BASE_URL in .env}
       LLM_API_KEY: ${LLM_API_KEY:?set LLM_API_KEY in .env}

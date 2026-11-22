@@ -205,18 +205,7 @@ export function mainDeal(deals: readonly DealView[], now: Date): DealView | unde
   )[0];
 }
 
-export type EventPhase = 'upcoming' | 'live' | 'ended';
-
-export function eventPhase(
-  e: Pick<DealEvent, 'kind' | 'startsOn' | 'endsOn'>,
-  now: Date,
-): EventPhase {
-  if (e.kind === 'evergreen') return 'live';
-  const today = calendarDay(now);
-  if (e.endsOn && today > e.endsOn) return 'ended';
-  if (e.startsOn && today < e.startsOn) return 'upcoming';
-  return 'live';
-}
+export { type EventPhase, eventPhase } from '@deals/core';
 
 /** "Nov 1 – Dec 7" for seasonal events, null for evergreen ones. */
 export function eventRange(
