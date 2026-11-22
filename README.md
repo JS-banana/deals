@@ -40,6 +40,18 @@ pnpm dev                      # http://localhost:3000，后台在 /admin
 
 常用命令：`pnpm lint`（Biome）、`pnpm typecheck`、`pnpm test`（Vitest）、`pnpm build`。修改 `packages/db/src/schema.ts` 后运行 `pnpm db:generate` 生成迁移。
 
+### Git 提交
+
+新克隆的开发仓库在安装依赖后运行一次 `git config --local core.hooksPath .githooks`，即可在 `git commit` 时检查提交信息。推送到 `main` 和提交 PR 时，CI 会用同一份 commitlint 配置检查本次新增的提交。
+
+标题采用 `type(scope): 摘要`，范围可省略，中文和英文都可以。用 `feat` 表示新功能、`fix` 表示修复、`docs` 表示文档、`ci` 表示持续集成，其他类型沿用 commitlint 的常规预设。每次提交围绕一个可以独立回滚的改动，原因和取舍可另起一段写在正文。[Conventional Commits 规范](https://www.conventionalcommits.org/zh-hans/v1.0.0/)
+
+```text
+fix(seo): 修复首页分页的索引状态
+feat(worker): submit changed URLs to IndexNow
+docs: clarify local setup
+```
+
 ## 数据管线
 
 运行 `pnpm worker <job>`（如 `pnpm worker translate --dry-run`）：
