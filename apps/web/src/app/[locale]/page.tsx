@@ -8,7 +8,12 @@ import { getEvents, getLang, getNow, getPublishedDeals } from '@/lib/data';
 import { eventPhase } from '@/lib/deal-view';
 import { alternatesFor, JsonLd, pageUrl } from '@/lib/seo';
 
-const FILTER_KEYS = ['category', 'status', 'q', 'existing', 'lifetime', 'sort', 'page'];
+/**
+ * Filtered views get noindex. `page` is not a filter: infinite scroll rewrites the URL to `?page=2`
+ * as soon as the list end is near, which in Google's tall render viewport happens on load, and a
+ * noindex there would drop the home page itself. Paged URLs already canonicalize to `/`.
+ */
+const FILTER_KEYS = ['category', 'status', 'q', 'existing', 'lifetime', 'sort'];
 
 /** The featured event that has not ended drives the hero and, when seasonal, the page title. */
 const featuredEvent = <E extends Pick<DealEvent, 'featured' | 'kind' | 'startsOn' | 'endsOn'>>(
