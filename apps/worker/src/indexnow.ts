@@ -8,7 +8,7 @@ import {
   pick,
   TOPICS,
 } from '@deals/core';
-import { eq, listDeals, listEvents, sql, syncState } from '@deals/db';
+import { eq, listDeals, listEvents, syncState, withAdvisoryLock } from '@deals/db';
 import type { Ctx } from './runtime.ts';
 import { bump, sha256 } from './util.ts';
 
@@ -139,12 +139,7 @@ export async function indexNow(ctx: Ctx) {
   }
 
   if (ctx.dryRun) return sync();
-  // The CLI and scheduler may overlap. Use this transaction only for the lock's lifetime.
-  await ctx.db.transaction(async (tx) => {
-    const [lock] = await tx.execute<{ locked: boolean }>(
-      sql`select pg_try_advisory_xact_lock(hashtextextended(${stateKey}, 0)) as locked`,
-    );
-    if (lock?.locked) await sync();
-    else ctx.log('another IndexNow submission is already running');
-  });
+  if (!(await withAdvisoryLock(ctx.db, stateKey, sync))) {
+    ctx.log('another IndexNow submission is already running');
+  }
 }

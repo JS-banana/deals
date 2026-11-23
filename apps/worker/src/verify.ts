@@ -60,10 +60,11 @@ export function numberAppears(n: number, text: string): boolean {
 }
 
 /** Case-insensitive whole-token match, so BF26 does not match inside BF2026. */
-export function codeAppears(code: string, text: string): boolean {
-  return new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRe(fold(code))}(?![\\p{L}\\p{N}_])`, 'iu').test(
-    fold(text),
-  );
+export function codeAppears(code: string, text: string, exactCase = false): boolean {
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}_])${escapeRe(fold(code))}(?![\\p{L}\\p{N}_])`,
+    exactCase ? 'u' : 'iu',
+  ).test(fold(text));
 }
 
 /**
@@ -134,6 +135,9 @@ export function checkDates(
 
 /** Fields the recheck may change, in display order. */
 export const VOLATILE_FIELDS = [
+  'benefitSummary',
+  'howToClaim',
+  'estimatedValue',
   'priceAmount',
   'originalAmount',
   'currency',
@@ -159,6 +163,8 @@ const same = (field: (typeof VOLATILE_FIELDS)[number], a: unknown, b: unknown): 
       a === b || (typeof a === 'string' && typeof b === 'string' && Date.parse(a) === Date.parse(b))
     );
   }
+  if (field === 'benefitSummary' || field === 'howToClaim')
+    return (a as { zh?: string } | null)?.zh === (b as { zh?: string } | null)?.zh;
   if (field === 'terms' || field === 'renewal' || field === 'eligibility') {
     // Localized text: only the Chinese source counts; English is derived from it.
     const zh = (v: unknown) => (v as { zh: string } | null)?.zh.trim() ?? null;
@@ -199,4 +205,212 @@ export function mergeVolatile(
       changes.push({ field: 'noCode', before: before.noCode, after: merged.noCode });
   }
   return { deal: merged as Deal, changes };
+}
+
+/** Explicit observations only; questions, conditions and negations require human review. */
+export function statesOfferEnded(quote: string): boolean {
+  if (
+    /[?？]|\b(?:not|never|if|once|when|until|unless|whether|before|after)\b|n't\b|尚未|并未|还没|如果|若|是否/i.test(
+      quote,
+    )
+  )
+    return false;
+  return /\b(?:offer|sale|deal|promotion|discount|campaign|coupon|code|event)\s+(?:(?:has|is|was)\s+)?(?:now\s+|already\s+)?(?:ended|expired|over|closed|finished|withdrawn|no longer (?:available|valid|accepted))\b|(?:活动|优惠码?|促销|折扣)(?:现已|已经|已)(?:结束|过期|截止|失效|下架)/i.test(
+    quote,
+  );
+}
+
+const PRICE_ROLES = {
+  priceAmount:
+    /\b(?:now|only|pay|sale price|current price|discounted price)\b|现价|到手价|活动价|售价/i,
+  originalAmount: /\b(?:regular|original|was|list price|normally|msrp|rrp)\b|原价|原價/i,
+  discountAmount: /\b(?:save|saving|savings)\b|立减|省下|节省/i,
+};
+const PRICE_ROLE_BOUNDARY = new RegExp(
+  `(?=${Object.values(PRICE_ROLES)
+    .map((role) => role.source)
+    .join('|')})`,
+  'i',
+);
+
+const SYMBOLS: Record<string, string> = {
+  USD: 'US\\$',
+  CAD: 'CA\\$|C\\$',
+  AUD: 'AU\\$|A\\$',
+  EUR: '€',
+  GBP: '£',
+  CNY: 'CN¥|RMB',
+  JPY: 'JP¥',
+};
+const NUMERAL = '[0-9]+(?:[.,][0-9]+)*';
+
+/** Match the number attached to the unit. A seat count elsewhere in the quote cannot prove a price. */
+function amountWithUnit(value: number, unit: string, quote: string): boolean {
+  const pattern = new RegExp(
+    `(?<![\\p{L}0-9])(?:${unit})\\s*(${NUMERAL})(?![0-9]|[.,][0-9])|(?<![0-9.,])(${NUMERAL})\\s*(?:${unit})(?![\\p{L}0-9])`,
+    'giu',
+  );
+  const matches = [...quote.matchAll(pattern)];
+  return matches.length > 0 && matches.every((m) => numberAppears(value, m[1] ?? m[2] ?? ''));
+}
+
+function dateInQuote(value: string, quote: string, start: boolean) {
+  // Only accept a date directly attached to a role, or the matching endpoint of a range.
+  if (/\b(?:not|previously|formerly|originally)\b|原定|并非|未定/i.test(quote)) return false;
+  const role = start
+    ? /(?:\b(?:starts?|begins?|from)\b(?:\s+(?:on|at))?|开始(?:于)?|自)\s*[:：]?\s*$/i
+    : /(?:\b(?:ends?|expires?|until|through|to)\b(?:\s+(?:on|at))?|截止(?:至|于)?|截至|至)\s*[:：]?\s*$/i;
+  const bound = (form: string) => {
+    const index = quote.toLowerCase().indexOf(form.toLowerCase());
+    if (index < 0 || /\d/.test(quote[index + form.length] ?? '')) return false;
+    return (
+      role.test(quote.slice(0, index)) ||
+      (start ? /^\s*(?:起|开始)/ : /^\s*(?:截止|结束|到期)/).test(quote.slice(index + form.length))
+    );
+  };
+  if (bound(value)) return true;
+  if (value.includes('T')) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  for (const locale of ['en-US', 'en-GB', 'zh-CN']) {
+    for (const month of ['long', 'short'] as const) {
+      const form = new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month,
+        day: 'numeric',
+        timeZone: 'UTC',
+      }).format(date);
+      if (bound(form)) return true;
+    }
+  }
+  return false;
+}
+
+// Normalize a small set of unambiguous grant phrases. Unknown conditions stay in the
+// fingerprint, so a translation that drops a qualifier or changes a unit requires review.
+function supportsBenefit(summary: string, quote: string) {
+  const normalize = (s: string) =>
+    fold(s)
+      .toLowerCase()
+      .replace(
+        /new (?:customers|users) only|only (?:for )?new (?:customers|users)|仅限新(?:客户|用户)|限新客/g,
+        ' NEWONLY ',
+      )
+      .replace(/([\d,.]+)\s*(?:美元|usd)/g, (_m, n) => `$${n}`)
+      .replace(/(?:us\$|usd|美元)/g, '$')
+      .replace(/(?:in )?(?:api )?credits?|(?:api\s*)?(?:赠金|试用金)/g, ' CREDIT ')
+      .replace(/\bdays?\b|天/g, ' DAY ')
+      .replace(/\btokens?\b|词元/g, ' TOKEN ')
+      .replace(/get |receive |(?:可)?(?:获赠|获领|获得|领取)|可获/g, '')
+      .replace(/[.!。！]$/, '')
+      .replace(/[\s，:：;；()（）]/g, '');
+  const a = normalize(summary),
+    b = normalize(quote);
+  return a.length > 0 && a === b;
+}
+
+function supports(field: string, deal: Deal, quote: string) {
+  switch (field) {
+    case 'benefitSummary':
+      return !!deal.benefitSummary && supportsBenefit(deal.benefitSummary.zh, quote);
+    case 'estimatedValue':
+      return (
+        deal.estimatedValue !== null &&
+        !!deal.currency &&
+        /worth|valued at|价值/i.test(quote) &&
+        amountWithUnit(
+          deal.estimatedValue,
+          [deal.currency, SYMBOLS[deal.currency]].filter(Boolean).join('|'),
+          quote,
+        )
+      );
+    case 'priceAmount':
+    case 'originalAmount':
+    case 'discountAmount': {
+      const value = deal[field];
+      if (value === null || !deal.currency) return false;
+      const unit = [deal.currency, SYMBOLS[deal.currency]].filter(Boolean).join('|');
+      // Keep adjacent amounts with their own role: "regular USD 50, now USD 29".
+      const clauses = quote.split(PRICE_ROLE_BOUNDARY);
+      return clauses.some(
+        (clause) =>
+          PRICE_ROLES[field].test(clause) &&
+          (amountWithUnit(value, unit, clause) ||
+            (['USD', 'CAD', 'AUD'].includes(deal.currency ?? '') &&
+              codeAppears(deal.currency ?? '', clause) &&
+              amountWithUnit(value, '\\$', clause))),
+      );
+    }
+    case 'discountPercent':
+      return (
+        deal.discountPercent !== null &&
+        /\boff\b|discount|saving|折扣|优惠|减免/i.test(quote) &&
+        amountWithUnit(deal.discountPercent, '%|percent', quote)
+      );
+    case 'code':
+      return deal.code !== null && codeAppears(deal.code, quote, true);
+    case 'startsOn':
+    case 'endsOn':
+    case 'startsAt':
+    case 'endsAt':
+      return deal[field] !== null && dateInQuote(deal[field], quote, field.startsWith('starts'));
+    case 'observedEndedAt':
+      return statesOfferEnded(quote);
+    case 'dateZone':
+      return deal.dateZone !== null && quote.includes(deal.dateZone);
+    case 'observedLiveOn':
+      return (
+        deal.observedLiveOn === deal.checkedOn &&
+        /available now|offer is live|sale is live|currently available|即日起|现已开启|正在进行/i.test(
+          quote,
+        ) &&
+        !/not available|no longer|previously|expired|已结束|已过期/i.test(quote)
+      );
+    case 'currency':
+      return deal.currency !== null && codeAppears(deal.currency, quote);
+    default:
+      // Non-numeric fields still need a field-specific merchant quote; the auditor checks its meaning.
+      return true;
+  }
+}
+
+/** Verify each claim against the exact merchant snapshot, even when replaying stored evidence. */
+export function missingMerchantEvidence(
+  deal: Deal,
+  changes: FieldChange[],
+  evidence: Evidence[],
+  page: Source,
+): string[] {
+  const { kept } = verifyEvidence(
+    evidence.filter((e) => e.url === page.url),
+    [page],
+  );
+  const fields = new Set<string>(
+    [
+      'benefitSummary',
+      'howToClaim',
+      'estimatedValue',
+      'priceAmount',
+      'originalAmount',
+      'discountPercent',
+      'discountAmount',
+      'code',
+      'startsOn',
+      'endsOn',
+      'startsAt',
+      'endsAt',
+      'renewal',
+      'eligibility',
+      'dateZone',
+    ].filter((field) => deal[field as keyof Deal] != null),
+  );
+  if (!changes.length && deal.observedLiveOn) fields.add('observedLiveOn');
+  if (deal.billing !== 'other') fields.add('billing');
+  for (const field of ['oneTime', 'existingUsers', 'noCode'] as const)
+    if (deal[field]) fields.add(field);
+  for (const { field } of changes) if (field !== 'checkedOn') fields.add(field);
+  const gaps = [...fields].filter(
+    (field) => !kept.some((e) => e.field === field && supports(field, deal, fold(e.quote))),
+  );
+  if (!kept.length && !gaps.length) gaps.push('商家引文');
+  return gaps;
 }

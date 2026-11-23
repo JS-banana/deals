@@ -15,6 +15,14 @@ export interface Config {
   llm: LlmConfig;
   /** Translation: TRANSLATE_* when all three are set, otherwise the same provider as `llm`. */
   translate: LlmConfig;
+  review: LlmConfig;
+  auto: {
+    create: boolean;
+    update: boolean;
+    reject: boolean;
+    minScore: number;
+    rejectBelow: number;
+  };
 }
 
 // Reasoning models can think for minutes before answering a batch.
@@ -40,7 +48,31 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         timeoutMs: TRANSLATE_TIMEOUT_MS,
       }
     : { ...llm, timeoutMs: TRANSLATE_TIMEOUT_MS };
+  const review: LlmConfig =
+    env.REVIEW_BASE_URL && env.REVIEW_API_KEY && env.REVIEW_MODEL
+      ? {
+          baseUrl: env.REVIEW_BASE_URL,
+          apiKey: env.REVIEW_API_KEY,
+          model: env.REVIEW_MODEL,
+          extraBody: env.REVIEW_EXTRA_BODY ? JSON.parse(env.REVIEW_EXTRA_BODY) : {},
+          timeoutMs: TRANSLATE_TIMEOUT_MS,
+        }
+      : translate;
+  const threshold = (key: string, fallback: number, min: number, max: number) => {
+    const value = env[key]?.trim() ? Number(env[key]) : fallback;
+    if (!Number.isFinite(value) || value < min || value > max)
+      throw new Error(`${key} must be between ${min} and ${max}`);
+    return value;
+  };
   return {
+    review,
+    auto: {
+      create: env.AUTO_APPROVE_CREATE === 'true',
+      update: env.AUTO_APPROVE_UPDATE === 'true',
+      reject: env.AUTO_REJECT_ENABLED === 'true',
+      minScore: threshold('AUTO_APPROVE_MIN_SCORE', 85, 70, 100),
+      rejectBelow: threshold('AUTO_REJECT_BELOW', 60, 0, 70),
+    },
     databaseUrl: env.DATABASE_URL,
     mediaDir: env.MEDIA_DIR,
     githubToken: env.GITHUB_TOKEN || undefined,
@@ -69,6 +101,7 @@ export interface Ctx extends JobOptions {
   stats: Stats;
   extractLlm: Llm;
   translateLlm: Llm;
+  reviewLlm: Llm;
   fetcher: Fetcher;
   log: (message: string) => void;
 }
@@ -113,6 +146,7 @@ export async function runJob(
     stats,
     extractLlm: createLlm(rt.config.llm, stats, rt.signal),
     translateLlm: createLlm(rt.config.translate, stats, rt.signal, 3),
+    reviewLlm: createLlm(rt.config.review, stats, rt.signal, 2),
     fetcher: createFetcher(rt.signal),
     log: write,
   };

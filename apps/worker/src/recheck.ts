@@ -1,7 +1,9 @@
 import { type DealView, dealSchema, dealState, productSchema } from '@deals/core';
 import {
+  dealVotes,
   desc,
   eq,
+  type FieldChange,
   fileProposal,
   listDeals,
   pageSnapshots,
@@ -11,13 +13,16 @@ import {
 import { z } from 'zod';
 import { zodParse } from './llm.ts';
 import { RECHECK_SYSTEM, recheckUser } from './prompts.ts';
+import { reviewProposal } from './review-proposal.ts';
 import { type Ctx, type Job, saveSnapshot, today } from './runtime.ts';
 import { translatePayload } from './translate.ts';
+import { hostOf } from './upstream.ts';
 import { bump, errorMessage, mapPool, sha256 } from './util.ts';
 import {
   codeAppears,
   mergeVolatile,
   numberAppears,
+  statesOfferEnded,
   VOLATILE_FIELDS,
   verifyEvidence,
 } from './verify.ts';
@@ -60,6 +65,9 @@ const recheckSchema = z.object({
       startsAt: optional(instant),
       endsAt: optional(instant),
       dateZone: optional(zone),
+      benefitSummary: optional(both),
+      howToClaim: optional(both),
+      estimatedValue: optional(z.number()),
       terms: optional(both),
       renewal: optional(both),
       eligibility: optional(both),
@@ -73,8 +81,6 @@ const recheckSchema = z.object({
   confidence: z.number().min(0).max(1).catch(0.5),
 });
 
-const OFFER_ENDED =
-  /\b(ended|expired|over|closed|no longer|unavailable|sold out|discontinued|withdrawn|finished)\b|已结束|已过期|已截止|已下架|不再/i;
 /** Amount fields are only updated when a published value exists to compare against. */
 const NO_NEW_AMOUNTS = new Set([
   'priceAmount',
@@ -97,18 +103,15 @@ function appearsOnPage(field: string, value: unknown, text: string): boolean {
   return true;
 }
 
-async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
+async function checkDeal(ctx: Ctx, view: DealView, priority: boolean): Promise<void> {
   const { db, stats } = ctx;
   const day = today();
   const url = view.merchantUrl;
   const before = dealSchema.parse(view);
 
   const snapshots = () => db.select().from(pageSnapshots).orderBy(desc(pageSnapshots.id)).limit(1);
-  const [[prevAny], [prevHashed], [lastObservation]] = await Promise.all([
+  const [[prevAny], [lastObservation]] = await Promise.all([
     snapshots().where(eq(pageSnapshots.url, url)),
-    snapshots().where(
-      sql`${pageSnapshots.url} = ${url} and ${pageSnapshots.contentHash} is not null`,
-    ),
     db
       .select()
       .from(priceObservations)
@@ -117,8 +120,20 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
       .limit(1),
   ]);
 
+  const previousHash = lastObservation?.snapshotId
+    ? (
+        await db
+          .select({ hash: pageSnapshots.contentHash, url: pageSnapshots.url })
+          .from(pageSnapshots)
+          .where(eq(pageSnapshots.id, lastObservation.snapshotId))
+      )[0]
+    : null;
   const page = await ctx.fetcher.page(url);
-  const changed = page.hash !== null && page.hash !== prevHashed?.contentHash;
+  const observedEndedAt = new Date().toISOString();
+  const changed =
+    page.hash !== null &&
+    (priority || previousHash?.url !== url || page.hash !== previousHash?.hash);
+
   const snapshotId = await saveSnapshot(ctx, url, page, changed);
   bump(stats, 'checked');
 
@@ -144,6 +159,7 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
     if (ctx.dryRun) return;
     await fileProposal(db, {
       kind: 'flag',
+      snapshotId,
       dealId: view.id,
       payload: null,
       changes: [],
@@ -189,20 +205,81 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
   );
   const result = await ctx.extractLlm.json({
     system: RECHECK_SYSTEM,
-    user: recheckUser(day, current, {
-      url: page.url,
-      title: page.title,
-      text: page.text.slice(0, LLM_TEXT_CHARS),
-    }),
+    user: recheckUser(
+      day,
+      { ...current, plan: before.plan.zh, offerType: before.offerType, offerKey: before.offerKey },
+      {
+        url: page.url,
+        title: page.title,
+        text: page.text.slice(0, LLM_TEXT_CHARS),
+      },
+    ),
     parse: zodParse(recheckSchema),
   });
   const { kept, dropped } = verifyEvidence(result.evidence, [{ url: page.url, text: page.text }]);
 
+  const notes: string[] = [];
+  if (
+    ![hostOf(view.merchantUrl), view.product.website && hostOf(view.product.website)].includes(
+      hostOf(page.url),
+    )
+  )
+    notes.push('复查跳转至未经确认的商家域名');
+  const proposedUpdate = async (
+    deal: typeof before,
+    changes: FieldChange[],
+    reason: string,
+    dedupeKey: string,
+  ) => {
+    const candidate = dealSchema.parse({ ...deal, checkedOn: day });
+    const product = productSchema.parse(view.product);
+    const finished = await translatePayload(
+      ctx,
+      product,
+      candidate,
+      changes.map((c) => c.field),
+    );
+    const reviewedChanges = changes.map((change) => ({
+      ...change,
+      after: finished.deal[change.field as keyof typeof before],
+    }));
+    if (day !== before.checkedOn)
+      reviewedChanges.push({ field: 'checkedOn', before: before.checkedOn, after: day });
+    const filed = await reviewProposal(
+      ctx,
+      {
+        kind: 'update',
+        dealId: view.id,
+        snapshotId,
+        payload: { product: finished.product, event: view.event.slug, deal: finished.deal },
+        changes: reviewedChanges,
+        evidence: kept,
+        reason,
+        confidence: Math.round(Math.max(0.05, result.confidence - 0.1 * dropped) * 100) / 100,
+        auditInputs: { merchantUrl: page.url, upstreamText: '', dropped, notes },
+        dedupeKey,
+        sourceRef: page.url,
+      },
+      page.text,
+    );
+    bump(stats, filed ? 'proposals' : 'duplicates');
+  };
+
   if (!result.offerStillValid) {
-    // The quote itself has to say so; the model has cited unrelated pricing lines before.
-    const proof = kept.filter((e) => OFFER_ENDED.test(e.quote));
-    if (proof.length) await flag('offer-ended', proof[0]?.quote ?? '', proof);
-    else ctx.log(`${view.product.name}: offer-ended claim without a supporting quote ignored`);
+    const proof = kept.find(
+      (e) => statesOfferEnded(e.quote) && ['observedEndedAt', 'offerStillValid'].includes(e.field),
+    );
+    if (proof) {
+      proof.field = 'observedEndedAt';
+      await proposedUpdate(
+        { ...before, observedEndedAt },
+        [{ field: 'observedEndedAt', before: before.observedEndedAt, after: observedEndedAt }],
+        `商家页明确活动已结束：${proof.quote}`,
+        `ended:${view.id}:${page.hash}`,
+      );
+    } else if (kept.length) {
+      await flag('offer-ended', '结束状态需人工核实', kept);
+    } else ctx.log(`${view.product.name}: offer-ended claim without a supporting quote ignored`);
     return observe(before.priceAmount, codePresent);
   }
 
@@ -215,9 +292,11 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
           ctx.log(
             `${view.product.name}: ignored new ${change.field} ${JSON.stringify(change.after)}`,
           );
+          notes.push(`未采纳新增报价：${change.field}`);
           return false;
         }
         if (appearsOnPage(change.field, change.after, page.text)) return true;
+        notes.push(`商家页未核实：${change.field}`);
         ctx.log(
           `${view.product.name}: ignored ${change.field} -> ${JSON.stringify(change.after)} (not on the page)`,
         );
@@ -227,6 +306,7 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
   );
   // Pages localize currency by visitor region; a currency switch with the same amounts is not a deal change.
   if (!['priceAmount', 'originalAmount', 'discountAmount'].some((field) => field in accepted)) {
+    if (accepted.currency !== undefined) notes.push('忽略未伴随价格变化的币种变更');
     delete accepted.currency;
   }
   const proposed = mergeVolatile(before, accepted);
@@ -247,33 +327,13 @@ async function checkDeal(ctx: Ctx, view: DealView): Promise<void> {
     return observe(before.priceAmount, codePresent);
   }
 
-  const confidence = Math.round(Math.max(0.05, result.confidence - 0.1 * dropped) * 100) / 100;
   const fields = proposed.changes.map((c) => c.field).join('、');
-  ctx.log(`${view.product.name}: update ${fields} (confidence ${confidence})`);
-  if (ctx.dryRun) {
-    ctx.log(`  ${JSON.stringify(proposed.changes)}`);
-  } else {
-    // Rewritten editorial fields arrive as zh only; translate them now so approval publishes both.
-    const finished = await translatePayload(ctx, productSchema.parse(view.product), valid.data);
-    const changes = proposed.changes.map((change) =>
-      change.field === 'terms' || change.field === 'renewal' || change.field === 'eligibility'
-        ? { ...change, after: finished.deal[change.field] }
-        : change,
-    );
-    const id = await fileProposal(db, {
-      kind: 'update',
-      dealId: view.id,
-      payload: { product: finished.product, event: view.event.slug, deal: finished.deal },
-      changes,
-      evidence: kept,
-      reason: `商家页内容变化，重新抽取后字段不同：${fields}`,
-      confidence,
-      dedupeKey: `update:${view.id}:${sha256(JSON.stringify(proposed.changes)).slice(0, 12)}`,
-      sourceRef: page.url,
-    });
-    if (id) bump(stats, 'proposals');
-    else bump(stats, 'duplicates');
-  }
+  await proposedUpdate(
+    valid.data,
+    proposed.changes,
+    `商家页变化：${fields}`,
+    `update:${view.id}:${sha256(JSON.stringify(proposed.changes)).slice(0, 12)}`,
+  );
   return observe(observedPrice, codePresent);
 }
 
@@ -290,14 +350,31 @@ export const recheck: Job = async (ctx) => {
     .from(priceObservations)
     .groupBy(priceObservations.dealId);
   const lastAt = new Map(last.map((r) => [r.dealId, r.at.getTime()]));
-  active.sort((a, b) => (lastAt.get(a.id) ?? 0) - (lastAt.get(b.id) ?? 0) || a.id - b.id);
+  const reports = await ctx.db
+    .select({
+      id: dealVotes.dealId,
+      at: sql`max(${dealVotes.createdAt})`.mapWith(dealVotes.createdAt),
+    })
+    .from(dealVotes)
+    .where(sql`not ${dealVotes.valid} and ${dealVotes.createdAt} > now() - interval '24 hours'`)
+    .groupBy(dealVotes.dealId)
+    .having(sql`count(distinct ${dealVotes.voterHash}) >= 2`);
+  const priority = new Set(
+    reports.filter((r) => r.at.getTime() > (lastAt.get(r.id) ?? 0)).map((r) => r.id),
+  );
+  active.sort(
+    (a, b) =>
+      Number(priority.has(b.id)) - Number(priority.has(a.id)) ||
+      (lastAt.get(a.id) ?? 0) - (lastAt.get(b.id) ?? 0) ||
+      a.id - b.id,
+  );
   const batch = ctx.limit ? active.slice(0, ctx.limit) : active;
   ctx.log(`${batch.length} of ${active.length} active deals to check`);
   await mapPool(
     batch,
     3,
     ctx.signal,
-    (deal) => checkDeal(ctx, deal),
+    (deal) => checkDeal(ctx, deal, priority.has(deal.id)),
     (deal, error) => {
       bump(ctx.stats, 'errors');
       ctx.log(`${deal.product.name}: ${errorMessage(error)}`);

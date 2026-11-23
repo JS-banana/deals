@@ -1,0 +1,226 @@
+[
+  {
+    "id": "github-bfcm",
+    "type": "github",
+    "target": "trungdq88/Awesome-Black-Friday-Cyber-Monday",
+    "enabled": true,
+    "quota": 15
+  },
+  {
+    "id": "jetbrains",
+    "type": "rss",
+    "target": "https://blog.jetbrains.com/feed/",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "github-mac",
+    "type": "github",
+    "target": "mRs-/Black-Friday-Deals",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "github-startup",
+    "type": "github",
+    "target": "twf-nikhila/Awesome-Black-Friday-Cyber-Monday-deals",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "github-frontend",
+    "type": "github",
+    "target": "greatfrontend/black-friday-cyber-monday-deals",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "github-free-dev",
+    "type": "github",
+    "target": "ripienaar/free-for-dev",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-macapps",
+    "type": "reddit",
+    "target": "macapps",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-apphookup",
+    "type": "reddit",
+    "target": "AppHookup",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-saas",
+    "type": "reddit",
+    "target": "SaaS",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-sideproject",
+    "type": "reddit",
+    "target": "SideProject",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-indiehackers",
+    "type": "reddit",
+    "target": "indiehackers",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-localllama",
+    "type": "reddit",
+    "target": "LocalLLaMA",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-claudeai",
+    "type": "reddit",
+    "target": "ClaudeAI",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-geminiai",
+    "type": "reddit",
+    "target": "GeminiAI",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-chatgpt",
+    "type": "reddit",
+    "target": "ChatGPT",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-cursor",
+    "type": "reddit",
+    "target": "cursor",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-codex",
+    "type": "reddit",
+    "target": "codex",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "reddit-singularity",
+    "type": "reddit",
+    "target": "singularity",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "hn-free-credits",
+    "type": "hn",
+    "target": "free credits",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "hn-free-api",
+    "type": "hn",
+    "target": "free API",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "hn-black-friday",
+    "type": "hn",
+    "target": "black friday",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "hn-lifetime-deal",
+    "type": "hn",
+    "target": "lifetime deal",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "hn-discount",
+    "type": "hn",
+    "target": "discount",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "x-cloudflare",
+    "type": "x",
+    "target": "/twitter/user/Cloudflare",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "x-credits",
+    "type": "x",
+    "target": "/twitter/keyword/free%20API%20credits",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "search-credits",
+    "type": "search",
+    "target": "free LLM API credits software promotion",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "user-tips",
+    "type": "user_tip",
+    "target": "",
+    "enabled": true,
+    "quota": 15
+  },
+  {
+    "id": "github-mac-apps",
+    "type": "github",
+    "target": "s1ntoneli/Awesome-Black-Friday-Cyber-Monday-for-Mac-Apps",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "github-free-llm",
+    "type": "github",
+    "target": "open-free-llm-api/awesome-freellm-apis",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "cloudflare",
+    "type": "rss",
+    "target": "https://blog.cloudflare.com/zh-cn/rss/",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "openai",
+    "type": "rss",
+    "target": "https://openai.com/news/rss.xml",
+    "enabled": false,
+    "quota": 15
+  },
+  {
+    "id": "v2ex-deals",
+    "type": "rss",
+    "target": "https://www.v2ex.com/feed/deals.xml",
+    "enabled": false,
+    "quota": 15
+  }
+]
