@@ -8,7 +8,7 @@ import type {
 import { z } from 'zod';
 import { zodParse } from './llm.ts';
 import { AUDIT_SYSTEM, auditUser } from './prompts.ts';
-import type { Config, Ctx } from './runtime.ts';
+import { type Config, type Ctx, today } from './runtime.ts';
 import { errorMessage } from './util.ts';
 import { missingMerchantEvidence } from './verify.ts';
 
@@ -40,6 +40,7 @@ export async function auditProposal(ctx: Ctx, candidate: AuditCandidate, pageTex
         evidence,
         { url: auditInputs.merchantUrl, text: pageText },
         auditInputs.upstreamText,
+        payload.deal.checkedOn || today(),
       ),
       reasoningEffort: 'medium',
       parse: zodParse(auditSchema),

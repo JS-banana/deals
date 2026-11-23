@@ -25,7 +25,7 @@ const FIELD_RULES = `FIELD RULES (deal)
 - billing: one of ${BILLING.join(' | ')}.
   one_time = paid once (lifetime / perpetual licence); first_year = the discount applies to the first year or first term only, then the regular price returns; year = discounted recurring yearly price; month = discounted recurring monthly price; other = anything else (usage credits, bundles, unclear).
 ${VOLATILE_RULES}
-- observedLiveOn: today's date (YYYY-MM-DD) ONLY when the PAGE itself currently shows the discounted price, banner or code. null when the deal is only mentioned in the UPSTREAM line.
+- observedLiveOn: today's date (YYYY-MM-DD) ONLY when the PAGE itself explicitly states the offer is currently live or available (e.g. "available now", "sale is live"). Otherwise null.
 - oneTime: true when the offer is a one-time purchase / perpetual licence.
 - existingUsers: true ONLY when the sources say existing customers or subscribers can also use the offer (upgrade, extension, renewal).
 - terms (Simplified Chinese): which plans/regions qualify, device or seat limits, plans that are excluded, and how the code applies (prefilled, auto-applied, entered at checkout). One to three short sentences.
@@ -39,7 +39,7 @@ GENERAL
 - Do not output URLs, ids, slugs or review flags; the pipeline fills those in.`;
 
 const STYLE_GUIDE = `文案风格（只写简体中文；英文由独立的翻译流程生成，不要输出英文版本）
-- product.summary.zh：不超过 30 个字，只说产品做什么，不写价格、不用夸张词（如“超值”“强大”“必备”）。
+- product.summary.zh：严格不超过 30 个字符（含中文、英文与标点），只说产品做什么，不写价格、不用夸张词（如“超值”“强大”“必备”）。
 - plan.zh：版本 · 计费 · 席位，例如“Pro 买断 · 3 台设备”“Solo 年付 · 首年”“终身授权 · 含 3 年更新”。
 - terms.zh：哪些方案或地区可用、优惠码如何生效、设备数量、哪些方案不参加。陈述事实，不用“限时”“抢购”等促销口吻。
 - renewal.zh / eligibility.zh：仅在来源明确说明时填写，否则为 null。
@@ -57,7 +57,7 @@ const OUTPUT_SHAPE = `OUTPUT: one JSON object, no prose, no markdown fences:
 }
 All editorial text fields are Simplified Chinese only; merchantPlan is a verbatim identifier. English is produced by a separate translation step, never write it. category is one of: ${CATEGORY_RULES}.
 When skip is set, product and deal must be null.
-evidence: for each of priceAmount, originalAmount, code, noCode, endsOn/startsOn and any other fact you set, give a quote of at most 200 characters copied character for character from the PAGE or UPSTREAM text. Quotes that are not verbatim are discarded.
+evidence: for each populated field—including priceAmount, originalAmount, discountPercent, discountAmount, code, noCode, billing, oneTime, existingUsers, startsOn/endsOn/startsAt/endsAt, dateZone, observedLiveOn, renewal, eligibility, benefitSummary, howToClaim, and estimatedValue—give a quote of at most 200 characters copied character for character from the PAGE or UPSTREAM text. Quotes that are not verbatim are discarded.
 Use the exact field name for each quote. Quote every populated price, discount and code separately, including its unit, price role (regular, sale or savings) and the context identifying the plan. For observedLiveOn quote the explicit current availability statement. Prefer PAGE for every field.
 confidence: 0.85+ when the PAGE and UPSTREAM agree and every field is explicit; about 0.6 when only the UPSTREAM line supports the deal; below 0.4 when unsure.`;
 
@@ -128,6 +128,7 @@ Check every changed field. observedEndedAt is a time of observation: approve it 
 explicitly says this specific offer has ended. UPSTREAM alone cannot establish a merchant fact.
 Review Chinese copy for objective wording. Do not rewrite the proposal.
 Boolean flags (noCode, oneTime, existingUsers) default to false when unstated; do not flag false as an unsupported negative claim unless the source contradicts it.
+The "today" field is the Asia/Shanghai calendar date of this check; checkedOn and observedLiveOn equal to "today" are current, not future dates.
 Return one JSON object matching {verdict:"approve"|"review"|"reject",score:0..100,dims:{accuracy:0..100,billingAndTerms:0..100,relevance:0..100,copyQuality:0..100},issues:string[],summary:string}, no prose.
 Use Chinese for summary and issues. Approve only if no factual error or unresolved issue remains.
 Reject for clear factual invalidity or non-software content; missing evidence goes to review.
@@ -139,8 +140,10 @@ export function auditUser(
   evidence: Evidence[],
   page: { url: string; text: string },
   upstream: string,
+  today: string,
 ) {
   return JSON.stringify({
+    today: `${today} (Asia/Shanghai)`,
     candidate: payload,
     changes,
     evidence,
