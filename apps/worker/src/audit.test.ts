@@ -334,5 +334,46 @@ describe('refined merchant quote matchers', () => {
         ),
       ).toContain('priceAmount');
     }
+
+    const insteadQuote = 'The Basic plan is only $29.50 instead of $59.';
+    const saveQuote = 'save 50% on all yearly Superlist subscriptions';
+    const phraseItem: AuditCandidate = {
+      ...candidate,
+      evidence: [
+        ...evidence.filter(
+          (e) => !['priceAmount', 'originalAmount', 'discountPercent'].includes(e.field),
+        ),
+        { field: 'priceAmount', quote: insteadQuote, url: merchant },
+        { field: 'originalAmount', quote: insteadQuote, url: merchant },
+        { field: 'discountPercent', quote: saveQuote, url: merchant },
+      ],
+      payload: {
+        ...candidate.payload,
+        deal: {
+          ...candidate.payload.deal,
+          priceAmount: 29.5,
+          originalAmount: 59,
+          discountPercent: 50,
+        },
+      },
+    };
+    expect(merchantGaps(phraseItem, `${page}\n${insteadQuote}\n${saveQuote}`)).toEqual([]);
+    expect(
+      merchantGaps(
+        {
+          ...phraseItem,
+          payload: {
+            ...candidate.payload,
+            deal: {
+              ...candidate.payload.deal,
+              priceAmount: 59,
+              originalAmount: 29.5,
+              discountPercent: 50,
+            },
+          },
+        },
+        `${page}\n${insteadQuote}\n${saveQuote}`,
+      ),
+    ).toEqual(expect.arrayContaining(['priceAmount', 'originalAmount']));
   });
 });

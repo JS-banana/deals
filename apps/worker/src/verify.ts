@@ -223,7 +223,7 @@ export function statesOfferEnded(quote: string): boolean {
 const PRICE_ROLES = {
   priceAmount:
     /\b(?:now|only|pay|sale price|current price|discounted price)\b|现价|到手价|活动价|售价/i,
-  originalAmount: /\b(?:regular|original|was|list price|normally|msrp|rrp)\b|原价|原價/i,
+  originalAmount: /\b(?:regular|original|was|instead of|list price|normally|msrp|rrp)\b|原价|原價/i,
   discountAmount: /\b(?:save|saving|savings)\b|立减|省下|节省/i,
 };
 const PRICE_ROLE_BOUNDARY = new RegExp(
@@ -381,7 +381,7 @@ function supports(field: string, deal: Deal, quote: string) {
     case 'discountPercent':
       return (
         deal.discountPercent !== null &&
-        /\boff\b|discount|saving|折扣|优惠|减免/i.test(quote) &&
+        /\b(?:off|save|savings?|discount)\b|折扣|优惠|减免/i.test(quote) &&
         amountWithUnit(deal.discountPercent, '%|percent', quote)
       );
     case 'code':
