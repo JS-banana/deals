@@ -15,6 +15,20 @@
       "when": 1795188214087,
       "tag": "0001_orange_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795321495929,
+      "tag": "0002_ambitious_spyke",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795322481719,
+      "tag": "0003_last_captain_cross",
+      "breakpoints": true
     }
   ]
 }

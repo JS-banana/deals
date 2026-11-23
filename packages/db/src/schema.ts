@@ -5,6 +5,7 @@ import type {
   EventKind,
   KeyDate,
   Localized,
+  OfferType,
   Product,
   PublishStatus,
 } from '@deals/core';
@@ -74,6 +75,11 @@ export const deals = pgTable(
       .references(() => events.id),
     status: text('status').$type<PublishStatus>().notNull().default('draft'),
     rank: integer('rank').notNull().default(1000),
+    offerKey: text('offer_key').notNull().default('default'),
+    offerType: text('offer_type').$type<OfferType>().notNull().default('discount'),
+    benefitSummary: jsonb('benefit_summary').$type<Localized>(),
+    estimatedValue: money('estimated_value'),
+    howToClaim: jsonb('how_to_claim').$type<Localized>(),
     plan: jsonb('plan').$type<Localized>().notNull(),
     priceAmount: money('price_amount'),
     originalAmount: money('original_amount'),
@@ -89,6 +95,7 @@ export const deals = pgTable(
     endsAt: instant('ends_at'),
     dateZone: text('date_zone'),
     observedLiveOn: day('observed_live_on'),
+    observedEndedAt: instant('observed_ended_at'),
     oneTime: boolean('one_time').notNull().default(false),
     existingUsers: boolean('existing_users').notNull().default(false),
     terms: jsonb('terms').$type<Localized>().notNull(),
@@ -103,7 +110,7 @@ export const deals = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    unique('deals_product_event').on(t.productId, t.eventId),
+    unique('deals_product_event_offer').on(t.productId, t.eventId, t.offerKey),
     index('deals_status').on(t.status),
   ],
 );
@@ -141,6 +148,21 @@ export const priceObservations = pgTable(
   (t) => [index('price_observations_deal_time').on(t.dealId, t.observedAt.desc())],
 );
 
+/** Inputs that cannot be recovered from the immutable payload, evidence and snapshot alone. */
+export interface AuditInputs {
+  merchantUrl: string;
+  upstreamText: string;
+  dropped: number;
+  notes: string[];
+}
+
+export interface ShadowDecision {
+  action: 'auto_approve' | 'auto_reject' | 'manual_review';
+  score: number | null;
+  summary: string;
+  issues: string[];
+}
+
 export type ProposalKind = 'create' | 'update' | 'flag';
 export type ProposalStatus = 'pending' | 'approved' | 'rejected';
 export interface ProposalPayload {
@@ -171,6 +193,12 @@ export const proposals = pgTable(
     status: text('status').$type<ProposalStatus>().notNull().default('pending'),
     dealId: integer('deal_id').references(() => deals.id, { onDelete: 'cascade' }),
     payload: jsonb('payload').$type<ProposalPayload>(),
+    approvedPayload: jsonb('approved_payload').$type<ProposalPayload>(),
+    snapshotId: integer('snapshot_id').references(() => pageSnapshots.id, { onDelete: 'restrict' }),
+    auditInputs: jsonb('audit_inputs').$type<AuditInputs>(),
+    shadowDecision: jsonb('shadow_decision').$type<ShadowDecision>(),
+    reviewedBy: text('reviewed_by').$type<'human' | 'ai'>(),
+    reviewEdited: boolean('review_edited'),
     changes: jsonb('changes').$type<FieldChange[]>().notNull().default([]),
     evidence: jsonb('evidence').$type<Evidence[]>().notNull().default([]),
     reason: text('reason').notNull(),
@@ -183,6 +211,7 @@ export const proposals = pgTable(
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   },
   (t) => [
+    index('proposals_snapshot').on(t.snapshotId),
     unique('proposals_dedupe').on(t.dedupeKey),
     index('proposals_status').on(t.status, t.createdAt.desc()),
   ],
@@ -196,6 +225,63 @@ export const pipelineRuns = pgTable('pipeline_runs', {
   ok: boolean('ok'),
   stats: jsonb('stats').$type<Record<string, unknown>>().notNull().default({}),
   error: text('error'),
+});
+
+export interface RawSignal {
+  signalKey: string;
+  sourceType: 'github' | 'rss' | 'reddit' | 'hn' | 'x' | 'search' | 'user_tip';
+  sourceName: string;
+  sourceUrl: string;
+  title: string;
+  rawText: string;
+  candidateUrls: string[];
+  publishedAt: string | null;
+  engagement?: number;
+}
+
+export const rawSignals = pgTable(
+  'raw_signals',
+  {
+    id: serial('id').primaryKey(),
+    sourceId: text('source_id').notNull(),
+    signalKey: text('signal_key').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    signal: jsonb('signal').$type<RawSignal>().notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    processedAt: instant('processed_at'),
+    createdAt: createdAt(),
+    submitterHash: text('submitter_hash'),
+  },
+  (t) => [
+    unique('raw_signal_version').on(t.sourceId, t.signalKey, t.fingerprint),
+    index('raw_signal_queue').on(t.sourceId, t.processedAt, t.id),
+    index('raw_signal_submitter').on(t.submitterHash, t.createdAt),
+  ],
+);
+
+export const dealVotes = pgTable(
+  'deal_votes',
+  {
+    id: serial('id').primaryKey(),
+    dealId: integer('deal_id')
+      .notNull()
+      .references(() => deals.id, { onDelete: 'cascade' }),
+    voterHash: text('voter_hash').notNull(),
+    valid: boolean('valid').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('deal_votes_recent').on(t.dealId, t.createdAt),
+    index('deal_votes_identity').on(t.dealId, t.voterHash, t.createdAt),
+  ],
+);
+
+export const webhookSubscriptions = pgTable('webhook_subscriptions', {
+  id: serial('id').primaryKey(),
+  kind: text('kind').$type<'slack' | 'discord' | 'feishu' | 'wecom' | 'dingtalk'>().notNull(),
+  // A named deployment secret holds the URL. Never store bearer URLs in the catalog.
+  secretName: text('secret_name').notNull().unique(),
+  enabled: boolean('enabled').notNull().default(false),
 });
 
 /** Small cursors such as the last processed upstream commit. */

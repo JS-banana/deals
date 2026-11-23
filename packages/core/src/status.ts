@@ -36,7 +36,7 @@ export function eventPhase(
 
 type Timing = Pick<
   Deal,
-  'startsOn' | 'endsOn' | 'startsAt' | 'endsAt' | 'dateZone' | 'observedLiveOn'
+  'startsOn' | 'endsOn' | 'startsAt' | 'endsAt' | 'dateZone' | 'observedLiveOn' | 'observedEndedAt'
 >;
 
 /**
@@ -50,6 +50,7 @@ type Timing = Pick<
 export type DealState = 'upcoming' | 'live' | 'ended' | 'unknown';
 
 export function dealState(d: Timing, now: Date): DealState {
+  if (d.observedEndedAt) return 'ended';
   const day = calendarDay(now, d.dateZone ?? SITE_TIME_ZONE);
   const ended = d.endsAt
     ? now.getTime() >= Date.parse(d.endsAt)
