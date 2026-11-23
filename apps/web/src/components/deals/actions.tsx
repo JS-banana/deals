@@ -97,17 +97,21 @@ export function CodeChip({ code }: { code: string }) {
 /** Bookmark toggle backed by localStorage; `aria-pressed` carries the state. */
 export function SaveButton({
   slug,
+  dealId,
   name,
   variant = 'icon',
   className,
 }: {
   slug: string;
+  dealId: number;
   name: string;
   variant?: 'icon' | 'full';
   className?: string;
 }) {
   const t = useTranslations('actions');
-  const saved = useSaved().includes(slug);
+  const key = `${slug}#${dealId}`;
+  const entries = useSaved();
+  const saved = entries.includes(key) || entries.includes(slug);
   const icon = <Bookmark className={cn('size-5', saved && 'fill-current')} aria-hidden="true" />;
   if (variant === 'full') {
     return (
@@ -115,7 +119,7 @@ export function SaveButton({
         type="button"
         variant="outline"
         aria-pressed={saved}
-        onClick={() => toggleSaved(slug)}
+        onClick={() => toggleSaved(key, slug)}
         className={cn('h-11 gap-2 px-4 text-sm', saved && 'border-primary/40', className)}
       >
         {icon}
@@ -130,7 +134,7 @@ export function SaveButton({
       aria-pressed={saved}
       aria-label={t('saveLabel', { name })}
       title={saved ? t('unsave') : t('save')}
-      onClick={() => toggleSaved(slug)}
+      onClick={() => toggleSaved(key, slug)}
       className={cn(
         'relative z-10 inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:text-foreground',
         className,
@@ -151,9 +155,12 @@ export function CompareToggle({
 }) {
   const t = useTranslations('actions');
   const rows = useCompare();
-  const checked = rows.some((r) => r.slug === row.slug);
+  const checked = rows.some((r) => r.id === row.id);
   const full = !checked && rows.length >= COMPARE_MAX;
   const id = useId();
+  function toggle() {
+    if (!toggleCompare(row)) toast.info(t('compareFull', { max: COMPARE_MAX }));
+  }
   if (variant === 'icon') {
     return (
       <button
@@ -161,9 +168,9 @@ export function CompareToggle({
         aria-pressed={checked}
         aria-label={t('compareLabel', { name: row.name })}
         title={full ? t('compareFull', { max: COMPARE_MAX }) : t('compare')}
-        disabled={full}
-        onClick={() => toggleCompare(row)}
-        className="relative z-10 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground"
+        aria-disabled={full}
+        onClick={toggle}
+        className="relative z-10 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground"
       >
         <Scale className="size-4.5" aria-hidden="true" />
       </button>
@@ -173,13 +180,13 @@ export function CompareToggle({
     <label
       htmlFor={id}
       title={full ? t('compareFull', { max: COMPARE_MAX }) : undefined}
-      className="relative z-10 inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors select-none hover:bg-muted hover:text-foreground has-disabled:cursor-not-allowed has-disabled:opacity-50 has-disabled:hover:bg-transparent"
+      className="relative z-10 inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors select-none hover:bg-muted hover:text-foreground has-aria-disabled:opacity-40"
     >
       <Checkbox
         id={id}
         checked={checked}
-        disabled={full}
-        onCheckedChange={() => toggleCompare(row)}
+        aria-disabled={full}
+        onCheckedChange={toggle}
         aria-label={t('compareLabel', { name: row.name })}
       />
       {t('compare')}

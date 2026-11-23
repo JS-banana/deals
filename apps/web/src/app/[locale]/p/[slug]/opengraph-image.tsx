@@ -1,9 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { formatMoney } from '@deals/core';
 import { ImageResponse } from 'next/og';
 import { getProductDeals } from '@/lib/data';
-import { categoryName, mainDeal } from '@/lib/deal-view';
+import { categoryName } from '@/lib/deal-view';
 
 export const alt = 'Deal Index';
 export const size = { width: 1200, height: 630 };
@@ -37,21 +36,8 @@ async function logoDataUrl(logoPath: string | null): Promise<string | null> {
 
 export default async function OgImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const deal = mainDeal(await getProductDeals(slug), new Date());
+  const [deal] = await getProductDeals(slug);
   const name = deal?.product.name ?? 'Deal Index';
-  const price =
-    deal && deal.priceAmount !== null && deal.currency
-      ? formatMoney(deal.priceAmount, deal.currency, 'en')
-      : null;
-  const original =
-    deal && deal.originalAmount !== null && deal.currency
-      ? formatMoney(deal.originalAmount, deal.currency, 'en')
-      : null;
-  const discount = deal?.discountPercent
-    ? `${deal.discountPercent}% OFF`
-    : deal?.discountAmount && deal.currency
-      ? `SAVE ${formatMoney(deal.discountAmount, deal.currency, 'en')}`
-      : null;
   const logo = await logoDataUrl(deal?.product.logoPath ?? null);
   const category = deal ? categoryName(deal.product.category, 'en') : '';
 
@@ -120,28 +106,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-        {price && <div style={{ fontSize: 120, fontWeight: 700, color: LIME }}>{price}</div>}
-        {original && (
-          <div style={{ fontSize: 44, color: MUTED, textDecoration: 'line-through' }}>
-            {original}
-          </div>
-        )}
-        {discount && (
-          <div
-            style={{
-              fontSize: 40,
-              fontWeight: 700,
-              background: LIME,
-              color: LIME_INK,
-              borderRadius: 999,
-              padding: '10px 28px',
-            }}
-          >
-            {discount}
-          </div>
-        )}
-      </div>
+      <div style={{ color: MUTED, fontSize: 30 }}>{deal?.product.summary.en ?? ''}</div>
     </div>,
     { ...size },
   );

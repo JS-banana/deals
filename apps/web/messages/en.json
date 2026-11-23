@@ -78,7 +78,8 @@
       "daysLeft": "{count, plural, one {# day left} other {# days left}}",
       "endsToday": "Ends today",
       "noEnd": "End date not announced"
-    }
+    },
+    "estimatedValue": "Estimated value {amount}"
   },
   "actions": {
     "save": "Save",
@@ -127,9 +128,6 @@
     "pick": "Editor's pick",
     "genericTitle": "Software deals, spelled out",
     "genericText": "Compare real prices, renewal terms, coupon codes and deadlines. Every deal names its source.",
-    "searchLabel": "Search deals",
-    "searchPlaceholder": "Search software, use case or code",
-    "search": "Search",
     "quick": {
       "ai": "AI tools",
       "lifetime": "Lifetime licenses",
@@ -195,14 +193,25 @@
     "history": "Deal history",
     "current": "Current",
     "priceHistory": "Price history",
-    "priceHistoryLabel": "Observed price changed from {from} to {to}",
+    "priceHistoryLabel": "Observed prices range from {min} to {max}",
+    "stablePrice": "Steady at {price} across {count, plural, one {# check} other {# checks}}",
     "latest": "Latest",
     "lowest": "Lowest",
     "highest": "Highest",
     "similar": "Similar software",
     "viewFull": "Open full page",
     "metaTitleEvent": "{name} {event} deal and coupon code",
-    "metaKeywords": "{name},{name} coupon code,{name} discount,{name} deal"
+    "metaKeywords": "{name},{name} coupon code,{name} discount,{name} deal",
+    "offerType": "Offer type",
+    "benefit": "Benefit",
+    "howToClaim": "How to claim",
+    "offerTypes": {
+      "discount": "Discount",
+      "free_credit": "Free credit",
+      "free_trial": "Free trial",
+      "lifetime": "Lifetime",
+      "bundle": "Bundle"
+    }
   },
   "saved": {
     "title": "Saved deals",
@@ -310,5 +319,34 @@
     "retry": "Try again",
     "home": "Back to home",
     "reference": "Reference"
+  },
+  "community": {
+    "voteTitle": "Does this offer still work?",
+    "voteSummary": "{count, plural, one {# vote} other {# votes}} in the last 30 days · {percent}% say it works",
+    "noVotes": "No votes in the last 30 days",
+    "valid": "Still works",
+    "expired": "Expired",
+    "voted": "Your vote was recorded.",
+    "duplicate": "You already voted in the last 24 hours.",
+    "failed": "Could not submit. Please try again.",
+    "unavailable": "Submissions are temporarily unavailable.",
+    "tipTitle": "Submit a deal tip",
+    "tipUrl": "Offer or post URL",
+    "tipNote": "Describe the offer in one sentence",
+    "send": "Submit tip",
+    "submitted": "Tip received and queued for verification.",
+    "limited": "Too many tips. Please try again later.",
+    "invalid": "Enter a valid URL and a short description."
+  },
+  "command": {
+    "title": "Search site",
+    "placeholder": "Search products, categories, topics or codes",
+    "results": "Search results",
+    "category": "Category",
+    "topic": "Topic",
+    "offer": "Offer",
+    "loading": "Searching…",
+    "empty": "No matching results",
+    "failed": "Search is temporarily unavailable."
   }
 }

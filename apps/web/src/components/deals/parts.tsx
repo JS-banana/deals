@@ -83,7 +83,16 @@ export function PriceLine({
   const split = parts.priceSplit;
   return (
     <p className={cn('flex flex-wrap items-baseline gap-x-2 gap-y-1', className)}>
-      {split && parts.price ? (
+      {parts.benefit ? (
+        <strong
+          className={cn(
+            'leading-snug text-live-foreground',
+            size === 'lg' ? 'text-2xl' : 'text-lg',
+          )}
+        >
+          {parts.benefit}
+        </strong>
+      ) : split && parts.price ? (
         <span
           className={cn(
             'leading-none font-bold tracking-tight text-price tabular-nums',
@@ -105,6 +114,12 @@ export function PriceLine({
           )}
         >
           {parts.discount}
+        </span>
+      )}
+      {parts.benefit && parts.price && <span className="text-sm">{parts.price}</span>}
+      {parts.estimate && (
+        <span className="text-sm text-muted-foreground">
+          {t('estimatedValue', { amount: parts.estimate })}
         </span>
       )}
       {parts.price && parts.unit && (

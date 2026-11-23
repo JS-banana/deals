@@ -15,7 +15,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Link } from '@/i18n/navigation';
-import { toLocale } from '@/lib/deal-view';
+import { dealHref, toLocale } from '@/lib/deal-view';
 import { JsonLd, pageUrl } from '@/lib/seo';
 import { DealCard } from './deal-card';
 import { FilterBar, LoadMore } from './filter-bar';
@@ -114,7 +114,7 @@ export function Discovery({
             '@type': 'ListItem',
             position: index + 1,
             name: deal.product.name,
-            url: pageUrl(`/p/${deal.product.slug}`, locale),
+            url: pageUrl(dealHref(deal.product.slug, deal.id), locale),
           })),
         }}
       />

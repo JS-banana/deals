@@ -78,7 +78,8 @@
       "daysLeft": "还有 {count} 天",
       "endsToday": "今天结束",
       "noEnd": "截止日期未公布"
-    }
+    },
+    "estimatedValue": "价值约 {amount}"
   },
   "actions": {
     "save": "收藏",
@@ -127,9 +128,6 @@
     "pick": "编辑精选",
     "genericTitle": "软件优惠，一次看清",
     "genericText": "按用途比较实付价格、续费条件、优惠码和截止日期。每条活动都标明来源。",
-    "searchLabel": "搜索优惠",
-    "searchPlaceholder": "搜索软件、用途或优惠码",
-    "search": "搜索",
     "quick": {
       "ai": "AI 工具",
       "lifetime": "买断授权",
@@ -195,14 +193,25 @@
     "history": "活动记录",
     "current": "当前",
     "priceHistory": "价格记录",
-    "priceHistoryLabel": "观察到的价格从 {from} 变为 {to}",
+    "priceHistoryLabel": "观测价格介于 {min} 和 {max} 之间",
+    "stablePrice": "价格稳定在 {price}（已监测 {count} 次）",
     "latest": "最新",
     "lowest": "最低",
     "highest": "最高",
     "similar": "同类软件",
     "viewFull": "查看完整页面",
     "metaTitleEvent": "{name} {event}优惠与折扣码",
-    "metaKeywords": "{name},{name} 优惠码,{name} 折扣码,{name} 优惠"
+    "metaKeywords": "{name},{name} 优惠码,{name} 折扣码,{name} 优惠",
+    "offerType": "优惠类型",
+    "benefit": "优惠内容",
+    "howToClaim": "领取方式",
+    "offerTypes": {
+      "discount": "折扣",
+      "free_credit": "免费额度",
+      "free_trial": "免费试用",
+      "lifetime": "买断",
+      "bundle": "组合优惠"
+    }
   },
   "saved": {
     "title": "我的收藏",
@@ -310,5 +319,34 @@
     "retry": "重试",
     "home": "回到首页",
     "reference": "错误编号"
+  },
+  "community": {
+    "voteTitle": "这项优惠还有效吗？",
+    "voteSummary": "近 30 天有 {count} 票，{percent}% 认为有效",
+    "noVotes": "近 30 天暂无投票",
+    "valid": "仍然有效",
+    "expired": "已失效",
+    "voted": "已记录你的投票。",
+    "duplicate": "你在过去 24 小时内已投过票。",
+    "failed": "提交失败，请重试。",
+    "unavailable": "暂时无法提交，请稍后再试。",
+    "tipTitle": "提交优惠线索",
+    "tipUrl": "活动页或帖子链接",
+    "tipNote": "用一句话说明优惠",
+    "send": "提交线索",
+    "submitted": "已收到，线索将进入核验。",
+    "limited": "提交次数已达上限，请稍后再试。",
+    "invalid": "请填写有效的活动链接和简短说明。"
+  },
+  "command": {
+    "title": "全站搜索",
+    "placeholder": "搜索产品、分类、专题或优惠码",
+    "results": "搜索结果",
+    "category": "分类",
+    "topic": "专题",
+    "offer": "优惠",
+    "loading": "正在搜索…",
+    "empty": "没有匹配的结果",
+    "failed": "暂时无法搜索，请重试。"
   }
 }

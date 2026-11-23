@@ -68,6 +68,33 @@ export function PayloadPreview({ payload }: { payload: ProposalPayload }) {
           <Row label="方案">
             <Value value={deal.plan} />
           </Row>
+          <Row label="优惠标识">
+            <code>{deal.offerKey ?? 'default'}</code>
+          </Row>
+          <Row label="优惠类型">
+            {
+              {
+                discount: '折扣',
+                free_credit: '免费额度',
+                free_trial: '免费试用',
+                lifetime: '买断',
+                bundle: '组合优惠',
+              }[deal.offerType ?? 'discount']
+            }
+          </Row>
+          {deal.benefitSummary && (
+            <Row label="优惠内容">
+              <Value value={deal.benefitSummary} />
+            </Row>
+          )}
+          {deal.estimatedValue != null && (
+            <Row label="预估价值">{fmtMoney(deal.estimatedValue, deal.currency)}</Row>
+          )}
+          {deal.howToClaim && (
+            <Row label="领取方式">
+              <Value value={deal.howToClaim} />
+            </Row>
+          )}
           <Row label="价格">{price || '—'}</Row>
           <Row label="折扣">{discount || '—'}</Row>
           <Row label="优惠码">

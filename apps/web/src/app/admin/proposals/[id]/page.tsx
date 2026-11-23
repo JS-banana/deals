@@ -6,6 +6,7 @@ import {
   fmtMoney,
   fmtTime,
   KIND_BADGE,
+  SHADOW_LABEL,
   STATE_LABEL,
   STATUS_LABEL,
   Value,
@@ -51,6 +52,23 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
           <Badge variant="outline">{STATUS_LABEL[proposal.status]}</Badge>
         </div>
         <p className="text-sm">{proposal.reason}</p>
+        {proposal.shadowDecision && (
+          <div className="grid gap-1 text-sm">
+            <p>
+              {SHADOW_LABEL[proposal.shadowDecision.action]} ·{' '}
+              {proposal.shadowDecision.score ?? '无评分'} · {proposal.shadowDecision.summary}
+            </p>
+            {proposal.shadowDecision.issues.length > 0 && (
+              <p>{proposal.shadowDecision.issues.join('；')}</p>
+            )}
+          </div>
+        )}
+        {pending && proposal.reviewNote && (
+          <p className="text-destructive">{proposal.reviewNote}</p>
+        )}
+        {!pending && (
+          <p className="text-sm">{proposal.reviewedBy === 'ai' ? 'AI 自动审批' : '人工审批'}</p>
+        )}
         <p className="text-xs text-muted-foreground">
           #{id} · 置信度{' '}
           {proposal.confidence === null ? '—' : `${Math.round(proposal.confidence * 100)}%`} · 提交{' '}
@@ -165,6 +183,12 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         )}
       </section>
 
+      {proposal.approvedPayload && (
+        <details className="rounded-xl border p-4">
+          <summary>实际发布稿</summary>
+          <PayloadPreview payload={proposal.approvedPayload} />
+        </details>
+      )}
       {pending && kind === 'flag' && <FlagActions id={id} canHide={!!current} />}
       {pending && kind !== 'flag' && payload && (
         <ReviewForm id={id} initialPayload={JSON.stringify(payload, null, 2)} />

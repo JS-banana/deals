@@ -6,15 +6,17 @@ import {
   CATEGORY_UI,
   cardNote,
   categoryName,
+  compareRow,
   dayLabel,
   deadline,
+  dealHref,
   exceptionBadges,
   instantLabel,
   priceParts,
   toLocale,
 } from '@/lib/deal-view';
 import { cn } from '@/lib/utils';
-import { SaveButton } from './actions';
+import { CompareToggle, SaveButton } from './actions';
 import { CouponLine, DeadlineText, DealBadges, PriceLine, ProductLogo } from './parts';
 
 const host = (url: string) => new URL(url).host.replace(/^www\./, '');
@@ -99,12 +101,16 @@ export function DealPanel({ deal, now }: { deal: DealView; now: Date }) {
         {t('visit')}
         <ExternalLink className="size-4" aria-hidden="true" />
       </a>
-      <SaveButton
-        variant="full"
-        slug={deal.product.slug}
-        name={deal.product.name}
-        className="w-full"
-      />
+      <div className="flex items-center gap-2">
+        <SaveButton
+          variant="full"
+          slug={deal.product.slug}
+          dealId={deal.id}
+          name={deal.product.name}
+          className="flex-1"
+        />
+        <CompareToggle row={compareRow(deal, now, locale, td, fmt)} />
+      </div>
       <p className="text-xs text-muted-foreground">{t('checkoutNote')}</p>
     </section>
   );
@@ -167,6 +173,13 @@ export function DealFacts({ deal, now }: { deal: DealView; now: Date }) {
   return (
     <dl className="divide-y">
       <Fact label={t('plan')}>{pick(deal.plan, locale)}</Fact>
+      <Fact label={t('offerType')}>{t(`offerTypes.${deal.offerType}`)}</Fact>
+      {deal.benefitSummary && <Fact label={t('benefit')}>{pick(deal.benefitSummary, locale)}</Fact>}
+      {deal.howToClaim && (
+        <Fact label={t('howToClaim')}>
+          <p className="whitespace-pre-line">{pick(deal.howToClaim, locale)}</p>
+        </Fact>
+      )}
       <Fact label={t('terms')}>{pick(deal.terms, locale)}</Fact>
       {deal.eligibility && <Fact label={t('eligibility')}>{pick(deal.eligibility, locale)}</Fact>}
       {deal.existingUsers && <Fact label={t('existingUsers')}>{t('yes')}</Fact>}
@@ -260,16 +273,22 @@ export function DealHistory({
               className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm"
             >
               <span className="min-w-0">
-                <span className="font-medium">{pick(deal.event.name, locale)}</span>
+                <Link
+                  className="font-medium underline-offset-4 hover:underline"
+                  href={dealHref(deal.product.slug, deal.id)}
+                >
+                  {pick(deal.event.name, locale)} · {pick(deal.plan, locale)}
+                </Link>
                 {deal.id === currentId && (
                   <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
                     {t('current')}
                   </span>
                 )}
-                <span className="block text-muted-foreground">{pick(deal.plan, locale)}</span>
               </span>
               <span className="flex items-center gap-3 tabular-nums">
-                <span className="font-medium">{price.price ?? price.discount}</span>
+                <span className="font-medium">
+                  {price.benefit ?? price.price ?? price.discount}
+                </span>
                 <span className="text-muted-foreground">{due.primary}</span>
               </span>
             </li>
@@ -281,33 +300,41 @@ export function DealHistory({
 }
 
 export interface PricePoint {
+  id: number;
   at: Date;
   amount: number;
 }
 
-/** Price observations as an inline SVG sparkline; nothing when there are no observations. */
+/** Flat prices show a monitoring summary; changing prices show each observation on the chart. */
 export function PriceHistory({ points, currency }: { points: PricePoint[]; currency: string }) {
   const t = useTranslations('product');
   const fmt = useFormatter();
   const locale = toLocale(useLocale());
+  const first = points[0];
   const last = points.at(-1);
-  if (!last) return null;
+  if (!first || !last) return null;
   const money = (n: number) => formatMoney(n, currency, locale);
   const day = (d: Date) => fmt.dateTime(d, { month: 'short', day: 'numeric' });
 
-  const amounts = points.map((p) => p.amount);
-  const min = Math.min(...amounts);
-  const max = Math.max(...amounts);
-  const t0 = points[0]?.at.getTime() ?? 0;
-  const span = last.at.getTime() - t0 || 1;
+  const min = points.reduce((lowest, point) => Math.min(lowest, point.amount), first.amount);
+  const max = points.reduce((highest, point) => Math.max(highest, point.amount), first.amount);
+  const stable = points.length > 1 && min === max;
+  const t0 = first.at.getTime();
+  const span = last.at.getTime() - t0;
   const W = 320;
   const H = 72;
   const pad = 6;
-  const x = (p: PricePoint) => pad + ((p.at.getTime() - t0) / span) * (W - pad * 2);
-  const y = (p: PricePoint) =>
-    max === min ? H / 2 : pad + (1 - (p.amount - min) / (max - min)) * (H - pad * 2);
-  const line = points.map((p) => `${x(p).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
-  const first = points[0];
+  const chart =
+    max > min
+      ? points.map((p, index) => ({
+          ...p,
+          x:
+            pad +
+            (span ? (p.at.getTime() - t0) / span : index / (points.length - 1)) * (W - pad * 2),
+          y: pad + (1 - (p.amount - min) / (max - min)) * (H - pad * 2),
+        }))
+      : [];
+  const line = chart.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
   return (
     <section aria-labelledby="price-history-title" className="space-y-3">
@@ -315,51 +342,73 @@ export function PriceHistory({ points, currency }: { points: PricePoint[]; curre
         {t('priceHistory')}
       </h2>
       <div className="rounded-xl border bg-card p-4">
-        {points.length > 1 && first ? (
-          <>
-            <svg
-              viewBox={`0 0 ${W} ${H}`}
-              role="img"
-              aria-label={t('priceHistoryLabel', {
-                from: money(first.amount),
-                to: money(last.amount),
-              })}
-              className="h-20 w-full"
-              preserveAspectRatio="none"
-            >
-              <polygon points={`${pad},${H} ${line} ${W - pad},${H}`} className="fill-primary/10" />
-              <polyline
-                points={line}
-                fill="none"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-                className="stroke-primary"
-              />
-            </svg>
-            <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
-              <span>{day(first.at)}</span>
-              <span>{day(last.at)}</span>
-            </div>
-          </>
-        ) : null}
-        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums">
-          <span>
-            {t('latest')}: <b className="font-medium text-foreground">{money(last.amount)}</b>
-            {points.length === 1 && ` · ${day(last.at)}`}
-          </span>
-          {points.length > 1 && (
-            <>
-              <span>
-                {t('lowest')}: <b className="font-medium text-foreground">{money(min)}</b>
-              </span>
-              <span>
-                {t('highest')}: <b className="font-medium text-foreground">{money(max)}</b>
-              </span>
-            </>
-          )}
-        </p>
+        {stable && (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm font-medium tabular-nums">
+            {t('stablePrice', { price: money(min), count: points.length })}
+          </p>
+        )}
+        {chart.length > 0 && (
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            role="img"
+            aria-label={t('priceHistoryLabel', {
+              min: money(min),
+              max: money(max),
+            })}
+            className="h-20 w-full"
+            preserveAspectRatio="none"
+          >
+            <polygon points={`${pad},${H} ${line} ${W - pad},${H}`} className="fill-primary/10" />
+            <polyline
+              points={line}
+              fill="none"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+              className="stroke-primary"
+            />
+            {chart.map((p) => (
+              <circle
+                key={p.id}
+                cx={p.x}
+                cy={p.y}
+                r="3"
+                className={
+                  p.amount === min
+                    ? 'fill-live-foreground stroke-live-foreground'
+                    : 'fill-card stroke-primary'
+                }
+              >
+                <title>{`${day(p.at)} · ${money(p.amount)}`}</title>
+              </circle>
+            ))}
+          </svg>
+        )}
+        {points.length > 1 && (
+          <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
+            <time dateTime={first.at.toISOString()}>{day(first.at)}</time>
+            <time dateTime={last.at.toISOString()}>{day(last.at)}</time>
+          </div>
+        )}
+        {!stable && (
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums">
+            <span>
+              {t('latest')}: <b className="font-medium text-foreground">{money(last.amount)}</b>
+              {points.length === 1 && ` · ${day(last.at)}`}
+            </span>
+            {points.length > 1 && (
+              <>
+                <span>
+                  {t('lowest')}: <b className="font-medium text-foreground">{money(min)}</b>
+                </span>
+                <span>
+                  {t('highest')}: <b className="font-medium text-foreground">{money(max)}</b>
+                </span>
+              </>
+            )}
+          </p>
+        )}
       </div>
     </section>
   );

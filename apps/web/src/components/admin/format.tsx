@@ -105,3 +105,9 @@ export function Value({ value, className }: { value: unknown; className?: string
     );
   return <span className={cn('break-words', className)}>{String(value)}</span>;
 }
+
+export const SHADOW_LABEL = {
+  auto_approve: 'AI 拟通过',
+  auto_reject: 'AI 拟拒绝',
+  manual_review: 'AI 建议人审',
+} as const;

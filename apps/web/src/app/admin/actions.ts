@@ -13,9 +13,10 @@ import {
   proposals,
   rejectProposal,
 } from '@deals/db';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import { requireAdmin } from '../../lib/admin-auth';
 import { getDealWithRefs, getEventRow, getProposal, nextPendingId } from './queries';
 
 export interface FormState {
@@ -60,15 +61,21 @@ function parseWith<T extends z.ZodType>(
 
 function describe(e: unknown): string {
   const cause = (e as { cause?: { code?: string; message?: string } }).cause;
-  if (cause?.code === '23505') return '唯一约束冲突：slug 或「产品 + 活动」组合已存在。';
+  if (cause?.code === '23505')
+    return '此 slug 已被使用，或同一产品、活动下已有相同 offerKey 的优惠。';
   return cause?.message ?? (e instanceof Error ? e.message : '未知错误');
 }
 
-const refresh = () => revalidatePath('/admin', 'layout');
+function refresh() {
+  updateTag('deals');
+  updateTag('events');
+  revalidatePath('/admin', 'layout');
+}
 
 /* ───────────── proposals ───────────── */
 
 export async function approveAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
   const id = idSchema.safeParse(text(fd, 'id'));
   const note = noteSchema.safeParse(text(fd, 'note'));
   if (!id.success || !note.success) return { error: '参数无效。' };
@@ -81,7 +88,11 @@ export async function approveAction(_prev: FormState, fd: FormData): Promise<For
   const parsed = parseWith(payloadSchema, text(fd, 'payload'));
   if ('state' in parsed) return parsed.state;
   try {
-    await approveProposal(getDb(), id.data, parsed.data, note.data || undefined);
+    const result = await approveProposal(getDb(), id.data, parsed.data, note.data || undefined);
+    if (result.conflict) {
+      refresh();
+      return { error: result.conflict };
+    }
   } catch (e) {
     return { error: describe(e) };
   }
@@ -91,11 +102,13 @@ export async function approveAction(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function rejectAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
   const id = idSchema.safeParse(text(fd, 'id'));
   const note = noteSchema.safeParse(text(fd, 'note'));
   if (!id.success || !note.success) return { error: '参数无效。' };
   try {
-    await rejectProposal(getDb(), id.data, note.data || undefined);
+    if (!(await rejectProposal(getDb(), id.data, note.data || undefined)))
+      return { error: '提案已被处理。' };
   } catch (e) {
     return { error: describe(e) };
   }
@@ -106,6 +119,7 @@ export async function rejectAction(_prev: FormState, fd: FormData): Promise<Form
 
 /** Flag review: `hide` hides the affected deal and closes the proposal as approved; `dismiss` rejects it. */
 export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
   const id = idSchema.safeParse(text(fd, 'id'));
   const decision = z.enum(['hide', 'dismiss']).safeParse(text(fd, 'decision'));
   const note = noteSchema.safeParse(text(fd, 'note'));
@@ -113,7 +127,8 @@ export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise
   const db = getDb();
   try {
     if (decision.data === 'dismiss') {
-      await rejectProposal(db, id.data, note.data || undefined);
+      if (!(await rejectProposal(db, id.data, note.data || undefined)))
+        return { error: '提案已被处理。' };
     } else {
       await db.transaction(async (tx) => {
         const [p] = await tx
@@ -126,7 +141,12 @@ export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise
         await tx.update(deals).set({ status: 'hidden' }).where(eq(deals.id, p.dealId));
         await tx
           .update(proposals)
-          .set({ status: 'approved', reviewedAt: new Date(), reviewNote: note.data || null })
+          .set({
+            status: 'approved',
+            reviewedAt: new Date(),
+            reviewedBy: 'human',
+            reviewNote: note.data || null,
+          })
           .where(and(eq(proposals.id, id.data), eq(proposals.status, 'pending')));
       });
     }
@@ -141,6 +161,7 @@ export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise
 /* ───────────── deals ───────────── */
 
 export async function setDealStatusAction(fd: FormData) {
+  await requireAdmin();
   const id = idSchema.parse(text(fd, 'id'));
   const status = z.enum(PUBLISH_STATUS).parse(text(fd, 'status'));
   await getDb().update(deals).set({ status }).where(eq(deals.id, id));
@@ -148,6 +169,7 @@ export async function setDealStatusAction(fd: FormData) {
 }
 
 export async function setDealRankAction(fd: FormData) {
+  await requireAdmin();
   const id = idSchema.parse(text(fd, 'id'));
   const rank = z
     .string()
@@ -163,6 +185,7 @@ export async function setDealRankAction(fd: FormData) {
  * fails on the unique constraint. `logoPath` is kept when the edited product omits it.
  */
 export async function saveDealAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
   const id = idSchema.safeParse(text(fd, 'id'));
   if (!id.success) return { error: '参数无效。' };
   const db = getDb();
@@ -198,6 +221,7 @@ export async function saveDealAction(_prev: FormState, fd: FormData): Promise<Fo
 
 /** Create (`id` = "new") or edit an event. Saving one as featured un-features all others. */
 export async function saveEventAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireAdmin();
   const rawId = text(fd, 'id');
   const id = rawId === 'new' ? null : idSchema.safeParse(rawId);
   if (id && !id.success) return { error: '参数无效。' };
@@ -223,6 +247,7 @@ export async function saveEventAction(_prev: FormState, fd: FormData): Promise<F
 }
 
 export async function featureEventAction(fd: FormData) {
+  await requireAdmin();
   const id = idSchema.parse(text(fd, 'id'));
   if (!(await getEventRow(id))) throw new Error('活动不存在');
   await getDb().transaction(async (tx) => {

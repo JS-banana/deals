@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, '../..'),
   transpilePackages: ['@deals/core', '@deals/db'],
   poweredByHeader: false,
+  // Keep an internal locale rewrite on the original origin, including numeric loopback hosts.
+  skipProxyUrlNormalize: true,
   turbopack: {
     rules: {
       '*.css': {
