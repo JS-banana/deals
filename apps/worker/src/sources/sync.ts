@@ -19,6 +19,7 @@ import {
   entryKey,
   findKnown,
   hostOf,
+  isSharedHost,
   loadCatalog,
 } from '../upstream.ts';
 import { bump, errorMessage, sha256 } from '../util.ts';
@@ -105,6 +106,7 @@ async function examine(
   };
   const known = findKnown(catalog, entry, false);
   const trustedHosts = [...(known?.hosts ?? [])];
+  if (source.type === 'github' && !isSharedHost(host)) trustedHosts.push(host);
   const officialHost = OFFICIAL_RSS_HOSTS[source.id];
   if (source.type === 'rss' && typeof officialHost === 'string') trustedHosts.push(officialHost);
   const result = await extractCandidate(ctx, {

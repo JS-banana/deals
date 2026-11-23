@@ -4,6 +4,7 @@ import { type AuditCandidate, type AuditResult, decideProposal, shouldExecute } 
 import { replayMetrics } from './audit-eval.ts';
 import {
   AUDIT_SYSTEM,
+  auditUser,
   EXTRACT_SYSTEM,
   RECHECK_SYSTEM,
   reviewSystem,
@@ -257,4 +258,81 @@ it('includes JSON in every json_object system prompt and documents default-false
   }
   expect(AUDIT_SYSTEM).toContain('noCode, oneTime, existingUsers');
   expect(AUDIT_SYSTEM).toContain('default to false when unstated');
+  expect(AUDIT_SYSTEM).toContain('The "today" field');
+  const userMsg = JSON.parse(
+    auditUser(candidate.payload, [], evidence, { url: merchant, text: page }, '', '2026-11-24'),
+  );
+  expect(userMsg.today).toBe('2026-11-24 (Asia/Shanghai)');
+});
+
+describe('refined merchant quote matchers', () => {
+  it('accepts natural timezone phrases while rejecting unrelated zones', () => {
+    const quote = 'ends Dec 1 at 11:59 pm Pacific';
+    const item = {
+      ...candidate,
+      evidence: [...evidence, { field: 'dateZone', quote, url: merchant }],
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, dateZone: 'America/Los_Angeles' },
+      },
+    };
+    expect(merchantGaps(item, `${page}\n${quote}`)).toEqual([]);
+    expect(
+      merchantGaps(
+        {
+          ...item,
+          payload: {
+            ...candidate.payload,
+            deal: { ...candidate.payload.deal, dateZone: 'Pacific/Honolulu' },
+          },
+        },
+        `${page}\n${quote}`,
+      ),
+    ).toContain('dateZone');
+  });
+
+  it('accepts price transitions and bare USD symbols while rejecting swapped or foreign currencies', () => {
+    const arrowQuote = 'Code BLACKFRIDAY26 at checkout: $29 → $20.30';
+    const arrowItem: AuditCandidate = {
+      ...candidate,
+      evidence: [
+        ...evidence.filter((e) => !['priceAmount', 'originalAmount'].includes(e.field)),
+        { field: 'priceAmount', quote: arrowQuote, url: merchant },
+        { field: 'originalAmount', quote: arrowQuote, url: merchant },
+      ],
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, priceAmount: 20.3, originalAmount: 29 },
+      },
+    };
+    expect(merchantGaps(arrowItem, `${page}\n${arrowQuote}`)).toEqual([]);
+    expect(
+      merchantGaps(arrowItem, `${page}\nCode BLACKFRIDAY26 at checkout: $20.30 → $29`),
+    ).toEqual(expect.arrayContaining(['priceAmount', 'originalAmount']));
+    expect(
+      merchantGaps(arrowItem, `${page}\nCode BLACKFRIDAY26 at checkout: CAD $29 → $20.30`),
+    ).toEqual(expect.arrayContaining(['priceAmount', 'originalAmount']));
+
+    const bareUsd = 'Sale price $19';
+    const bareItem: AuditCandidate = {
+      ...candidate,
+      evidence: evidence.map((e) => (e.field === 'priceAmount' ? { ...e, quote: bareUsd } : e)),
+    };
+    expect(merchantGaps(bareItem, `${page}\n${bareUsd}`)).toEqual([]);
+    for (const bad of [
+      'Sale price CAD $19',
+      'Sale price CA$19',
+      'Regular price $19. Sale price $12.',
+    ]) {
+      expect(
+        merchantGaps(
+          {
+            ...bareItem,
+            evidence: evidence.map((e) => (e.field === 'priceAmount' ? { ...e, quote: bad } : e)),
+          },
+          `${page}\n${bad}`,
+        ),
+      ).toContain('priceAmount');
+    }
+  });
 });

@@ -242,6 +242,19 @@ const SYMBOLS: Record<string, string> = {
   CNY: 'CN¥|RMB',
   JPY: 'JP¥',
 };
+const NON_USD_CURRENCY =
+  /\b(?:CAD|AUD|NZD|HKD|SGD|EUR|GBP|CNY|JPY|RMB)\b|(?:CA|AU|NZ|HK|SG|MX|C|A)\$|€|£|¥/i;
+const TIMEZONE_PATTERNS: Record<string, RegExp> = {
+  UTC: /\b(?:utc|gmt)\b/i,
+  'America/Los_Angeles': /\b(?:pacific|pst|pdt|pt)\b|太平洋时间/i,
+  'America/New_York': /\b(?:eastern|est|edt|et)\b|美东时间/i,
+  'America/Chicago': /\b(?:central|cst|cdt|ct)\b|美中时间/i,
+  'Europe/London': /\b(?:gmt|bst|uk time)\b/i,
+  'Europe/Berlin': /\b(?:cet|cest)\b/i,
+  'Asia/Shanghai': /\b(?:beijing|china standard)\b|北京时间/i,
+  'Asia/Tokyo': /\b(?:jst|tokyo)\b|日本时间/i,
+  'Asia/Seoul': /\b(?:kst|seoul)\b|韩国时间/i,
+};
 const NUMERAL = '[0-9]+(?:[.,][0-9]+)*';
 
 /** Match the number attached to the unit. A seat count elsewhere in the quote cannot prove a price. */
@@ -329,15 +342,40 @@ function supports(field: string, deal: Deal, quote: string) {
       const value = deal[field];
       if (value === null || !deal.currency) return false;
       const unit = [deal.currency, SYMBOLS[deal.currency]].filter(Boolean).join('|');
+      const allowBareUsd = deal.currency === 'USD' && !NON_USD_CURRENCY.test(quote);
+      const effectiveUnit = allowBareUsd ? `${unit}|\\$` : unit;
+      const matchesWithUnit = (segment: string, amount: number) =>
+        amountWithUnit(amount, effectiveUnit, segment) ||
+        (['USD', 'CAD', 'AUD'].includes(deal.currency ?? '') &&
+          codeAppears(deal.currency ?? '', segment) &&
+          amountWithUnit(amount, '\\$', segment));
+      if (field === 'priceAmount' || field === 'originalAmount') {
+        const parts = quote.split(/\s*(?:→|->|=>)\s*/);
+        if (parts.length === 2) {
+          const [beforeText = '', afterText = ''] = parts;
+          const orig = deal.originalAmount;
+          const sale = deal.priceAmount;
+          const arrowRightOk =
+            sale !== null &&
+            (matchesWithUnit(afterText, sale) ||
+              (codeAppears(deal.currency, quote) && amountWithUnit(sale, '\\$', afterText)) ||
+              (!/[€£¥$]|\b[A-Z]{3}\b/.test(afterText) && numberAppears(sale, afterText)));
+          if (
+            orig !== null &&
+            sale !== null &&
+            orig > sale &&
+            (matchesWithUnit(beforeText, orig) ||
+              (codeAppears(deal.currency, quote) && amountWithUnit(orig, '\\$', beforeText))) &&
+            arrowRightOk
+          ) {
+            return true;
+          }
+        }
+      }
       // Keep adjacent amounts with their own role: "regular USD 50, now USD 29".
       const clauses = quote.split(PRICE_ROLE_BOUNDARY);
       return clauses.some(
-        (clause) =>
-          PRICE_ROLES[field].test(clause) &&
-          (amountWithUnit(value, unit, clause) ||
-            (['USD', 'CAD', 'AUD'].includes(deal.currency ?? '') &&
-              codeAppears(deal.currency ?? '', clause) &&
-              amountWithUnit(value, '\\$', clause))),
+        (clause) => PRICE_ROLES[field].test(clause) && matchesWithUnit(clause, value),
       );
     }
     case 'discountPercent':
@@ -356,7 +394,10 @@ function supports(field: string, deal: Deal, quote: string) {
     case 'observedEndedAt':
       return statesOfferEnded(quote);
     case 'dateZone':
-      return deal.dateZone !== null && quote.includes(deal.dateZone);
+      return (
+        deal.dateZone !== null &&
+        (quote.includes(deal.dateZone) || (TIMEZONE_PATTERNS[deal.dateZone]?.test(quote) ?? false))
+      );
     case 'observedLiveOn':
       return (
         deal.observedLiveOn === deal.checkedOn &&

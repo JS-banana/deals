@@ -62,13 +62,19 @@ const both = z
   .trim()
   .min(1)
   .transform((zh) => ({ zh, en: '' }));
+const shortSummary = z
+  .string()
+  .trim()
+  .min(1)
+  .max(30, 'product.summary must be at most 30 characters')
+  .transform((zh) => ({ zh, en: '' }));
 const optional = <T extends z.ZodType>(schema: T) => schema.nullish().transform((v) => v ?? null);
 
 /** What the model returns; the pipeline fills in slug, website, URLs, `verified` and `checkedOn`. */
 const extractionSchema = z
   .object({
     skip: z.object({ reason: z.string() }).nullish(),
-    product: z.object({ category: z.enum(CATEGORY_SLUGS), summary: both }).nullish(),
+    product: z.object({ category: z.enum(CATEGORY_SLUGS), summary: shortSummary }).nullish(),
     deal: z
       .object({
         plan: both,
