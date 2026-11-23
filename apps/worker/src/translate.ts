@@ -20,7 +20,15 @@ import { bump, errorMessage, sha256 } from './util.ts';
 
 const DEFAULT_SAMPLE = 15;
 
-const DEAL_COLUMNS = ['plan', 'terms', 'renewal', 'eligibility', 'cardNote'] as const;
+const DEAL_COLUMNS = [
+  'plan',
+  'terms',
+  'renewal',
+  'eligibility',
+  'cardNote',
+  'benefitSummary',
+  'howToClaim',
+] as const;
 
 interface Field {
   id: string;
@@ -287,11 +295,16 @@ export async function translatePayload(
   ctx: Ctx,
   product: Product,
   deal: Deal,
+  changedDealFields?: readonly string[],
 ): Promise<{ product: Product; deal: Deal }> {
   const todo: Array<{ column: Field['column']; value: Localized }> = [];
-  if (product.summary.zh.trim() && !product.summary.en.trim())
+  // Updates may patch only their reviewed fields. Keep all other published translations intact.
+  if (!changedDealFields && product.summary.zh.trim() && !product.summary.en.trim())
     todo.push({ column: 'summary', value: product.summary });
-  for (const column of DEAL_COLUMNS) {
+  const columns = changedDealFields
+    ? DEAL_COLUMNS.filter((column) => changedDealFields.includes(column))
+    : DEAL_COLUMNS;
+  for (const column of columns) {
     const value = deal[column];
     if (value?.zh.trim() && !value.en.trim()) todo.push({ column, value });
   }
@@ -311,11 +324,14 @@ export async function translatePayload(
       en: value.en.trim() ? value.en : (resolved.get(sourceHash(value.zh)) ?? ''),
     });
     const filled = { ...deal };
-    for (const column of DEAL_COLUMNS) {
+    for (const column of columns) {
       const value = deal[column];
       if (value) Object.assign(filled, { [column]: fill(value) });
     }
-    return { product: { ...product, summary: fill(product.summary) }, deal: filled };
+    return {
+      product: changedDealFields ? product : { ...product, summary: fill(product.summary) },
+      deal: filled,
+    };
   } catch (error) {
     ctx.log(`${product.slug}: translation skipped: ${errorMessage(error)}`);
     return { product, deal };

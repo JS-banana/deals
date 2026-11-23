@@ -3,19 +3,20 @@ import {
   CATEGORY_SLUGS,
   type Deal,
   dealSchema,
+  OFFER_TYPES,
   type Product,
   productSchema,
 } from '@deals/core';
-import { type Evidence, fileProposal } from '@deals/db';
+import { type Evidence, eq, proposals } from '@deals/db';
 import { z } from 'zod';
 import { zodParse } from './llm.ts';
 import { EXTRACT_SYSTEM, extractUser } from './prompts.ts';
-import { type Ctx, type Job, saveSnapshot, today } from './runtime.ts';
+import { reviewProposal } from './review-proposal.ts';
+import { type Ctx, saveSnapshot, today } from './runtime.ts';
 import { translatePayload } from './translate.ts';
 import {
   type Catalog,
   cleanMerchantUrl,
-  discover,
   findKnown,
   hostOf,
   isSharedHost,
@@ -23,9 +24,35 @@ import {
   slugify,
   type UpstreamEntry,
 } from './upstream.ts';
-import { bump, errorMessage, mapPool } from './util.ts';
+import { bump, sha256 } from './util.ts';
 import { checkDates, pickEvent, stripUnverified, verifyEvidence } from './verify.ts';
 
+// Offer identity is independent of the signal publisher and the current advertised price.
+export function offerKeyFor(deal: Deal, merchantPlan = '') {
+  const tier = merchantPlan.trim().normalize('NFKC').toLowerCase();
+  // An unnamed 30-day trial or $300 grant can have more than one sibling on the same landing page.
+  // Identify the entitlement itself; a different article, translated phrasing or display price
+  // does not create a new offer.
+  const grant =
+    !tier && deal.benefitSummary && ['free_credit', 'free_trial', 'bundle'].includes(deal.offerType)
+      ? (deal.benefitSummary.zh
+          .normalize('NFKC')
+          .toLowerCase()
+          .replace(/美元|us\$|\busd\b/g, '$')
+          .replace(/欧元|\beur\b/g, '€')
+          .replace(/人民币|\bcny\b/g, '¥')
+          .replace(/(\d[\d.,]*)\s*([$€¥£])/g, '$2$1')
+          .replace(/词元|tokens?\b/g, 'token')
+          .replace(/days?|天/g, 'day')
+          .match(
+            /(?:[$€¥£]\s*)?\d[\d.,]*(?:\s*(?:亿|万|k|m|b))?(?:\s*(?:token|day|个月|年|次|gb|tb))?/gi,
+          )
+          ?.map((value) => value.replace(/\s|,(?=\d{3}\b)/g, ''))
+          .sort() ?? [])
+      : [];
+  const basis = [tier, deal.code ?? '', grant];
+  return `${deal.offerType.replaceAll('_', '-')}-${deal.billing.replaceAll('_', '-')}-${sha256(JSON.stringify(basis)).slice(0, 16)}`;
+}
 const LLM_TEXT_CHARS = 40_000;
 const MIN_CONFIDENCE = 0.3;
 
@@ -45,6 +72,11 @@ const extractionSchema = z
     deal: z
       .object({
         plan: both,
+        merchantPlan: z.string().trim().max(120).nullish(),
+        offerType: z.enum(OFFER_TYPES).default('discount'),
+        benefitSummary: optional(both),
+        estimatedValue: optional(z.number()),
+        howToClaim: optional(both),
         priceAmount: optional(z.number()),
         originalAmount: optional(z.number()),
         currency: optional(z.string()),
@@ -95,14 +127,30 @@ export type Outcome =
 const skip = (reason: string, detail?: string): Outcome =>
   detail === undefined ? { status: 'skip', reason } : { status: 'skip', reason, detail };
 
+export function isTrustedHost(host: string | null, trustedHosts: readonly string[]): boolean {
+  return (
+    host !== null &&
+    trustedHosts.some(
+      (trusted) =>
+        !!trusted && !isSharedHost(trusted) && (host === trusted || host.endsWith(`.${trusted}`)),
+    )
+  );
+}
+
 /** Merchant page + upstream line -> verified `create` proposal (never a direct write). */
 export async function extractCandidate(
   ctx: Ctx,
-  input: { entry: UpstreamEntry; sha: string; catalog: Catalog },
+  input: {
+    entry: UpstreamEntry;
+    sha?: string;
+    sourceUrl?: string;
+    catalog: Catalog;
+    trustedHosts?: string[];
+  },
 ): Promise<Outcome> {
   const { entry, sha, catalog } = input;
   const day = today();
-  const sourceRef = permalink(sha, entry.line);
+  const sourceRef = input.sourceUrl ?? permalink(sha ?? 'HEAD', entry.line);
 
   let merchantUrl: string;
   try {
@@ -112,7 +160,7 @@ export async function extractCandidate(
   }
 
   const page = await ctx.fetcher.page(merchantUrl);
-  await saveSnapshot(ctx, merchantUrl, page);
+  const snapshotId = await saveSnapshot(ctx, merchantUrl, page);
   if (page.error === 'empty-text') {
     bump(ctx.stats, 'emptyText');
     return skip('empty-text');
@@ -122,8 +170,8 @@ export async function extractCandidate(
     return transient ? { status: 'retry', reason: page.error } : skip(page.error);
   }
 
-  const known = findKnown(catalog, entry);
-  const slug = known?.slug ?? slugify(entry.name);
+  const known = findKnown(catalog, entry, !input.sourceUrl);
+  const slug = known?.slug ?? (slugify(entry.name) || `app-${sha256(entry.name).slice(0, 12)}`);
   const host = hostOf(merchantUrl);
   const websiteOf = () => (isSharedHost(host) ? null : new URL(merchantUrl).origin);
 
@@ -173,6 +221,8 @@ export async function extractCandidate(
   ];
   const sourceText = sources.map((s) => s.text).join('\n');
   const notes: string[] = [];
+  if (input.trustedHosts && !isTrustedHost(hostOf(page.url), input.trustedHosts))
+    notes.push('商家域名尚未经独立确认');
   const stripped = stripUnverified(extraction.built.deal, sourceText);
   const dates = checkDates(stripped.deal, new Date(), day);
   notes.push(...stripped.notes, ...dates.notes);
@@ -190,6 +240,47 @@ export async function extractCandidate(
 
   const product: Product = known ? productSchema.parse({ ...known }) : extraction.built.product;
   const event = pickEvent(catalog.events, deal, day);
+  const eventId = catalog.events.find((e) => e.slug === event)?.id;
+  const existingOffers = known?.offers?.filter((o) => o.eventId === eventId) ?? [];
+  const label = extraction.deal?.merchantPlan || '';
+  const merchantPlan =
+    label &&
+    page.text.normalize('NFKC').toLowerCase().includes(label.normalize('NFKC').toLowerCase())
+      ? label
+      : '';
+  if (label && !merchantPlan) notes.push('商家未明确标识该方案');
+  const key = offerKeyFor(deal, merchantPlan);
+  const matchesLegacy = (
+    old: Pick<Deal, 'offerType' | 'billing' | 'code' | 'plan' | 'priceAmount'>,
+  ) => {
+    const legacyPlan =
+      old.plan.zh
+        .split(/[·｜|]/)[0]
+        ?.trim()
+        .toLowerCase() ?? '';
+    const samePlan = merchantPlan
+      ? legacyPlan.split(/[^\p{L}\p{N}]+/u).includes(merchantPlan.toLowerCase()) ||
+        legacyPlan === merchantPlan.toLowerCase()
+      : old.plan.zh === deal.plan.zh ||
+        (deal.priceAmount !== null && deal.priceAmount === old.priceAmount);
+    return (
+      samePlan &&
+      old.billing === deal.billing &&
+      old.code === deal.code &&
+      ((old.offerType ?? 'discount') === deal.offerType ||
+        ((old.offerType ?? 'discount') === 'discount' && deal.offerType === 'lifetime'))
+    );
+  };
+  if (
+    existingOffers.some((o) => o.offerKey === key || (o.offerKey === 'default' && matchesLegacy(o)))
+  )
+    return skip('existing-offer');
+  const [legacy] = await ctx.db
+    .select({ payload: proposals.payload })
+    .from(proposals)
+    .where(eq(proposals.dedupeKey, `create:${event}:${slug}`));
+  if (legacy?.payload && matchesLegacy(legacy.payload.deal)) return skip('existing-proposal');
+  deal.offerKey = key;
   const evidence: Evidence[] = kept;
   const reason = [
     `上游榜单新条目（${entry.section}）`,
@@ -198,63 +289,22 @@ export async function extractCandidate(
     ...notes,
   ].join('；');
 
-  if (ctx.dryRun) {
-    ctx.log(
-      `${entry.name}: would file create/${event} ${JSON.stringify({ deal, evidence, confidence })}`,
-    );
-    return { status: 'proposal', filed: true };
-  }
-  // English is produced here, before filing, so approving publishes both languages at once.
   const finished = await translatePayload(ctx, product, deal);
-  const id = await fileProposal(ctx.db, {
-    kind: 'create',
-    payload: { product: finished.product, event, deal: finished.deal },
-    changes: [],
-    evidence,
-    reason,
-    confidence,
-    dedupeKey: `create:${event}:${slug}`,
-    sourceRef,
-  });
-  ctx.log(
-    `${entry.name}: ${id ? `proposal #${id}` : 'duplicate'} (${event}, confidence ${confidence})`,
+  const filed = await reviewProposal(
+    ctx,
+    {
+      kind: 'create',
+      snapshotId,
+      auditInputs: { merchantUrl: page.url, upstreamText: entry.raw, dropped, notes },
+      payload: { product: finished.product, event, deal: finished.deal },
+      changes: [],
+      evidence,
+      reason,
+      confidence,
+      dedupeKey: `create:${event}:${slug}:${deal.offerKey}`,
+      sourceRef,
+    },
+    page.text,
   );
-  return { status: 'proposal', filed: id !== null };
+  return { status: 'proposal', filed };
 }
-
-/** `sync-upstream`: discover new upstream entries, then turn each into a proposal. */
-export const syncUpstream: Job = async (ctx) => {
-  const found = await discover(ctx);
-  ctx.stats.candidates = found.candidates.length;
-  ctx.stats.skippedExisting = found.existing;
-  ctx.stats.backlog = found.backlog;
-  await mapPool(
-    found.candidates,
-    3,
-    ctx.signal,
-    async (entry) => {
-      const outcome = await extractCandidate(ctx, {
-        entry,
-        sha: found.sha,
-        catalog: found.catalog,
-      });
-      if (outcome.status === 'retry') throw new Error(outcome.reason);
-      found.done(entry.key);
-      if (outcome.status === 'proposal')
-        bump(ctx.stats, outcome.filed ? 'proposals' : 'duplicates');
-      else {
-        bump(ctx.stats, 'skipped');
-        bump(ctx.stats, `skip:${outcome.reason}`);
-        ctx.log(
-          `${entry.name}: skipped (${outcome.reason}${outcome.detail ? `: ${outcome.detail}` : ''})`,
-        );
-      }
-    },
-    (entry, error) => {
-      bump(ctx.stats, 'errors');
-      const tries = found.failed(entry.key);
-      ctx.log(`${entry.name}: failed (try ${tries}): ${errorMessage(error)}`);
-    },
-  );
-  if (!ctx.dryRun) await found.save();
-};

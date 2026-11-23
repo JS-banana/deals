@@ -1,34 +1,46 @@
 import { Cron } from 'croner';
-import { syncUpstream } from './extract.ts';
+import { auditEval } from './audit-eval.ts';
 import { indexNow } from './indexnow.ts';
 import { logos } from './logos.ts';
+import { digest, notifyOffers } from './notify.ts';
+import { prune } from './prune.ts';
 import { recheck } from './recheck.ts';
 import { createRuntime, type Job, type JobOptions, log, type Runtime, runJob } from './runtime.ts';
+import { syncSources } from './sources/sync.ts';
 import { translate, translateEval } from './translate.ts';
 
 const JOBS: Record<string, Job> = {
   translate,
   'translate-eval': translateEval,
+  'audit-eval': auditEval,
   logos,
-  'sync-upstream': syncUpstream,
+  'sync-upstream': syncSources('upstream'),
+  'sync-fast': syncSources('fast'),
+  'sync-slow': syncSources('slow'),
   recheck,
   indexnow: indexNow,
+  prune,
+  digest,
+  'notify-offers': notifyOffers,
 };
 
-const USAGE = `usage: node src/main.ts <translate|translate-eval|logos|sync-upstream|recheck|indexnow|daily|schedule> [--limit N] [--dry-run]
+const USAGE = `usage: node src/main.ts <translate|translate-eval|audit-eval|logos|sync-upstream|sync-fast|sync-slow|recheck|indexnow|prune|digest|notify-offers|daily|schedule> [--limit N] [--dry-run]
   translate [--limit N] [--refresh] [--dry-run]
-  translate-eval [--sample N]`;
+  translate-eval | audit-eval [--sample N]`;
 
-/** translate -> logos -> sync-upstream (+extract) -> recheck; one failing job never stops the rest. */
+/** Each daily stage records its outcome before the next stage starts. */
 async function daily(rt: Runtime, options: JobOptions) {
   const results = await runJob(rt, 'daily', options, async (ctx) => {
-    for (const name of ['translate', 'logos', 'sync-upstream', 'recheck']) {
+    for (const name of ['translate', 'logos', 'sync-slow', 'recheck', 'prune', 'digest']) {
       if (rt.signal.aborted) break;
       const job = JOBS[name];
       if (!job) continue;
-      const { ok } = await runJob(rt, name, options, job).catch(() => ({ ok: false }));
+      const { ok, stats } = await runJob(rt, name, options, job).catch(() => ({
+        ok: false,
+        stats: { errors: 1 },
+      }));
       ctx.stats[name] = ok ? 1 : 0;
-      if (!ok) ctx.stats.failedJobs = (ctx.stats.failedJobs ?? 0) + 1;
+      if (!ok || stats.errors) ctx.stats.failedJobs = (ctx.stats.failedJobs ?? 0) + 1;
     }
   });
   return results.ok && !results.stats.failedJobs;
@@ -38,22 +50,33 @@ async function runNamed(rt: Runtime, name: string, options: JobOptions): Promise
   if (name === 'daily') return daily(rt, options);
   const job = JOBS[name];
   if (!job) throw new Error(`unknown job "${name}"\n${USAGE}`);
-  return (await runJob(rt, name, options, job)).ok;
+  const { ok, stats } = await runJob(rt, name, options, job);
+  return ok && (!name.startsWith('sync-') || !stats.errors);
 }
 
 async function schedule(rt: Runtime) {
   const timezone = 'Asia/Shanghai';
   const running = new Set<Promise<unknown>>();
-  const track = (name: string) => () => {
+  const track = (name: string) => async () => {
     if (rt.signal.aborted) return;
     const run = runNamed(rt, name, { dryRun: false }).catch((e) =>
       log('schedule', `${name} crashed: ${e}`),
     );
     running.add(run);
-    void run.finally(() => running.delete(run));
+    try {
+      await run;
+    } finally {
+      running.delete(run);
+    }
   };
   const crons = [
     new Cron('10 6 * * *', { timezone, protect: true, name: 'daily' }, track('daily')),
+    new Cron(
+      '*/10 * * * *',
+      { timezone, protect: true, name: 'notify-offers' },
+      track('notify-offers'),
+    ),
+    new Cron('20 */2 * * *', { timezone, protect: true, name: 'sync-fast' }, track('sync-fast')),
     new Cron('10 14,22 * * *', { timezone, protect: true, name: 'recheck' }, track('recheck')),
     // A no-op unless a field has no English or its Chinese changed since it was translated.
     new Cron('40 * * * *', { timezone, protect: true, name: 'translate' }, track('translate')),
@@ -105,7 +128,7 @@ try {
   const { name, options } = parseArgs(process.argv.slice(2));
   if (!name) throw new Error(USAGE);
   // The evaluation only reports; it never records a run or writes fields.
-  if (name === 'translate-eval') options.dryRun = true;
+  if (name === 'translate-eval' || name === 'audit-eval') options.dryRun = true;
   const rt = createRuntime(controller.signal);
   try {
     if (name === 'schedule') await schedule(rt);

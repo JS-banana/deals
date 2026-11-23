@@ -11,6 +11,7 @@
     "@deals/db": "workspace:*",
     "cheerio": "1.2.0",
     "croner": "11.0.1",
+    "undici": "7.30.2",
     "zod": "4.6.7"
   }
 }

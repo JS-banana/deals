@@ -1,23 +1,11 @@
-import type { DealEvent, Product } from '@deals/core';
-import {
-  deals as dealsTable,
-  eq,
-  listEvents,
-  products as productsTable,
-  syncState,
-  toProduct,
-} from '@deals/db';
+import type { Deal, DealEvent, Product } from '@deals/core';
+import { deals as dealsTable, listEvents, products as productsTable, toProduct } from '@deals/db';
+import { load } from 'cheerio';
 import type { Ctx } from './runtime.ts';
 import { today } from './runtime.ts';
-import { errorMessage } from './util.ts';
 import { pickEvent } from './verify.ts';
 
 export const UPSTREAM_REPO = 'trungdq88/Awesome-Black-Friday-Cyber-Monday';
-const STATE_KEY = 'upstream:awesome-bfcm';
-const DEFAULT_LIMIT = 15;
-/** An entry whose extraction keeps failing is dropped after this many tries. */
-const MAX_ATTEMPTS = 2;
-
 export interface UpstreamEntry {
   /** Stable identity (normalized name + host); survives line shifts between commits. */
   key: string;
@@ -115,29 +103,58 @@ const splitRow = (line: string) =>
  * for other layouts, `- [Name](url) - description` list items. Sections that are not deal
  * lists (intro, sponsors, table of contents) are skipped.
  */
-export function parseReadme(markdown: string): UpstreamEntry[] {
+export function parseReadme(markdown: string, distinctOffers = false): UpstreamEntry[] {
   const entries: UpstreamEntry[] = [];
   const seen = new Set<string>();
   const headings: string[] = [];
+  const sections: Array<{ line: number; label: string; skip: boolean }> = [];
   let skipSection = false;
+  let fence = '';
   let columns: { name: number; description: number; offer: number } | null = null;
 
-  const add = (entry: Omit<UpstreamEntry, 'key' | 'section'>) => {
-    const key = entryKey(entry.name, entry.url);
+  const add = (
+    entry: Omit<UpstreamEntry, 'key' | 'section'>,
+    section = headings.filter(Boolean).join(' / '),
+  ) => {
+    let cleaned: string;
+    try {
+      cleaned = cleanMerchantUrl(entry.url);
+    } catch {
+      return;
+    }
+    const key = distinctOffers
+      ? JSON.stringify([entryKey(entry.name, entry.url), cleaned, entry.offer || entry.description])
+      : entryKey(entry.name, entry.url);
     if (!entry.name || seen.has(key)) return;
     seen.add(key);
-    entries.push({ ...entry, key, section: headings.filter(Boolean).join(' / ') });
+    entries.push({ ...entry, key, section });
   };
 
   for (const [index, rawLine] of markdown.split('\n').entries()) {
     const line = rawLine.replace(/\r$/, '');
     const line1 = index + 1;
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (marker && (!fence || marker.startsWith(fence))) {
+      fence = fence ? '' : marker;
+      sections.push({
+        line: line1,
+        label: headings.filter(Boolean).join(' / '),
+        skip: !!fence || skipSection,
+      });
+      continue;
+    }
+    if (fence) continue;
     const heading = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (heading?.[1] && heading[2]) {
       const level = heading[1].length;
       headings.length = Math.max(0, level - 2);
       if (level >= 2) headings[level - 2] = plain(heading[2]);
       if (level === 2) skipSection = SKIPPED_SECTIONS.test(heading[2]);
+      sections.push({
+        line: line1,
+        label: headings.filter(Boolean).join(' / '),
+        skip: skipSection,
+      });
       columns = null;
       continue;
     }
@@ -145,14 +162,37 @@ export function parseReadme(markdown: string): UpstreamEntry[] {
 
     if (line.trimStart().startsWith('|')) {
       const cells = splitRow(line);
-      const labels = cells.map((c) => c.toLowerCase());
+      const labels = cells.map((c) => plain(c).toLowerCase());
       if (labels.includes('name')) {
         const find = (re: RegExp) => labels.findIndex((l) => re.test(l));
         columns = {
           name: labels.indexOf('name'),
           description: find(/description/),
-          offer: find(/discount|terms|deal/),
+          offer: find(/discount|terms|deal|offer/),
         };
+        continue;
+      }
+      if (
+        labels.includes('provider') &&
+        labels.includes('free models') &&
+        labels.includes('get api key')
+      ) {
+        columns = { name: labels.indexOf('provider'), description: -1, offer: -2 };
+        continue;
+      }
+      if (columns?.offer === -2) {
+        const href = load(cells.at(-1) ?? '')('a[href]')
+          .first()
+          .attr('href');
+        if (href && /^https:\/\//.test(href))
+          add({
+            name: plain(cells[columns.name] ?? ''),
+            url: href,
+            description: 'Free API access',
+            offer: '',
+            line: line1,
+            raw: line.trim(),
+          });
         continue;
       }
       if (!columns || cells.every((c) => /^:?-+:?$/.test(c) || c === '')) continue;
@@ -163,7 +203,14 @@ export function parseReadme(markdown: string): UpstreamEntry[] {
       add({
         name: plain(link[1]),
         url: link[2],
-        description: cell(columns.description),
+        description:
+          cell(columns.description) ||
+          plain(
+            (cells[columns.name] ?? '')
+              .split(/<br\s*\/?>/i)
+              .slice(1)
+              .join(' '),
+          ),
         offer: cell(columns.offer),
         line: line1,
         raw: line.trim(),
@@ -185,6 +232,40 @@ export function parseReadme(markdown: string): UpstreamEntry[] {
       });
     }
   }
+  // Some curated lists are HTML tables embedded in Markdown. Skip sponsor tables without offer columns.
+  const html = load(markdown, { sourceCodeLocationInfo: true });
+  for (const table of html('table').toArray()) {
+    const start = table.sourceCodeLocation?.startLine ?? 1;
+    const section = sections.findLast((s) => s.line <= start);
+    if (section?.skip) continue;
+    const headers = html(table)
+      .find('th')
+      .toArray()
+      .map((th) => html(th).text().trim().toLowerCase());
+    const app = headers.indexOf('app'),
+      offer = headers.indexOf('offer');
+    if (app < 0 || offer < 0) continue;
+    for (const tr of html(table).find('tr').toArray()) {
+      const cells = html(tr).children('td');
+      const link = cells.eq(app).find('a[href]').first();
+      const url = link.attr('href');
+      if (!url || !/^https?:\/\//.test(url)) continue;
+      add(
+        {
+          name: link.text().trim(),
+          url,
+          description: cells.eq(headers.indexOf('description')).text().trim(),
+          offer: cells.eq(offer).text().trim(),
+          line: tr.sourceCodeLocation?.startLine ?? 1,
+          raw: cells
+            .toArray()
+            .map((td) => html(td).text().trim())
+            .join(' | '),
+        },
+        section?.label ?? '',
+      );
+    }
+  }
   return entries;
 }
 
@@ -201,6 +282,12 @@ export interface CatalogProduct extends Product {
   /** Hosts of the product website and its deals' merchant URLs, shared marketplaces excluded. */
   hosts: Set<string>;
   inTargetEvent: boolean;
+  offers?: Array<
+    Pick<
+      Deal,
+      'offerKey' | 'offerType' | 'billing' | 'code' | 'merchantUrl' | 'plan' | 'priceAmount'
+    > & { eventId: number }
+  >;
 }
 
 export interface Catalog {
@@ -211,60 +298,34 @@ export interface Catalog {
 }
 
 /** The catalog product an upstream entry refers to: same name, slug or merchant host. */
-export function findKnown(catalog: Catalog, entry: Pick<UpstreamEntry, 'name' | 'url'>) {
+export function findKnown(
+  catalog: Catalog,
+  entry: Pick<UpstreamEntry, 'name' | 'url'>,
+  matchHost = true,
+) {
   const host = hostOf(entry.url);
   const name = normalizeName(entry.name);
-  return catalog.products.find(
-    (p) =>
-      normalizeName(p.name) === name ||
-      normalizeName(p.slug) === name ||
-      (host !== null && !isSharedHost(host) && p.hosts.has(host)),
+  const exact = catalog.products.find(
+    (p) => normalizeName(p.name) === name || normalizeName(p.slug) === name,
   );
+  if (exact || !matchHost || !host || isSharedHost(host)) return exact;
+  const matches = catalog.products.filter((p) => p.hosts.has(host));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
-interface State {
-  sha: string | null;
-  processed: string[];
-  attempts: Record<string, number>;
-}
-
-async function fetchText(
-  url: string,
-  ctx: Ctx,
-  headers: Record<string, string> = {},
-): Promise<string> {
-  const response = await fetch(url, {
-    headers: { 'user-agent': 'DealIndexBot/1.0 (+https://deals.laifuyou.com/about)', ...headers },
-    signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(30_000)]),
-  });
-  if (!response.ok) throw new Error(`${url} -> HTTP ${response.status}`);
-  return response.text();
-}
-
-/** HEAD commit of the list: GitHub API first, the public Atom feed when the API is rate limited. */
-async function headSha(ctx: Ctx): Promise<string> {
-  const headers: Record<string, string> = { accept: 'application/vnd.github.sha' };
-  if (ctx.config.githubToken) headers.authorization = `Bearer ${ctx.config.githubToken}`;
-  try {
-    const url = `https://api.github.com/repos/${UPSTREAM_REPO}/commits/HEAD`;
-    const sha = (await fetchText(url, ctx, headers)).trim();
-    if (/^[0-9a-f]{40}$/.test(sha)) return sha;
-  } catch (error) {
-    ctx.log(`GitHub API unavailable (${errorMessage(error)}), using the Atom feed`);
-  }
-  const feed = await fetchText(`https://github.com/${UPSTREAM_REPO}/commits/HEAD.atom`, ctx);
-  const sha = /Grit::Commit\/([0-9a-f]{40})/.exec(feed)?.[1];
-  if (!sha) throw new Error('could not determine the upstream HEAD commit');
-  return sha;
-}
-
-async function loadCatalog(ctx: Ctx): Promise<Catalog> {
+export async function loadCatalog(ctx: Ctx): Promise<Catalog> {
   const [productRows, dealRows, events] = await Promise.all([
     ctx.db.select().from(productsTable),
     ctx.db
       .select({
         productId: dealsTable.productId,
         eventId: dealsTable.eventId,
+        offerKey: dealsTable.offerKey,
+        plan: dealsTable.plan,
+        priceAmount: dealsTable.priceAmount,
+        offerType: dealsTable.offerType,
+        code: dealsTable.code,
+        billing: dealsTable.billing,
         merchantUrl: dealsTable.merchantUrl,
       })
       .from(dealsTable),
@@ -283,80 +344,9 @@ async function loadCatalog(ctx: Ctx): Promise<Catalog> {
       return {
         ...toProduct(row),
         hosts: new Set(hosts),
+        offers: own,
         inTargetEvent: own.some((d) => d.eventId === targetId),
       };
     }),
-  };
-}
-
-export interface Discovery {
-  sha: string;
-  catalog: Catalog;
-  /** New entries, capped at the run limit, in README order. */
-  candidates: UpstreamEntry[];
-  /** Entries skipped without extraction because the target event already has the product. */
-  existing: number;
-  /** New entries beyond the cap, left for later runs. */
-  backlog: number;
-  done(key: string): void;
-  failed(key: string): number;
-  save(): Promise<void>;
-}
-
-/**
- * Read the upstream list and work out which entries are new since the last run. Entries are
- * "processed" once they produced a proposal or a final skip; the seeded catalog counts as
- * processed because its products already have deals in the target event.
- */
-export async function discover(ctx: Ctx): Promise<Discovery> {
-  const limit = ctx.limit ?? DEFAULT_LIMIT;
-  const sha = await headSha(ctx);
-  const markdown = await fetchText(
-    `https://raw.githubusercontent.com/${UPSTREAM_REPO}/${sha}/README.md`,
-    ctx,
-  );
-  const entries = parseReadme(markdown);
-  const [row] = await ctx.db.select().from(syncState).where(eq(syncState.key, STATE_KEY));
-  const saved = (row?.value ?? {}) as Partial<State>;
-  const processed = new Set(saved.processed ?? []);
-  const attempts = saved.attempts ?? {};
-  ctx.log(
-    `upstream ${sha.slice(0, 7)} (${saved.sha ? `last run ${saved.sha.slice(0, 7)}` : 'first run'}): ` +
-      `${entries.length} entries, ${processed.size} processed`,
-  );
-
-  const catalog = await loadCatalog(ctx);
-  const candidates: UpstreamEntry[] = [];
-  let existing = 0;
-  let backlog = 0;
-  for (const entry of entries) {
-    if (processed.has(entry.key)) continue;
-    if (findKnown(catalog, entry)?.inTargetEvent) {
-      processed.add(entry.key);
-      existing++;
-    } else if (candidates.length < limit) candidates.push(entry);
-    else backlog++;
-  }
-
-  return {
-    sha,
-    catalog,
-    candidates,
-    existing,
-    backlog,
-    done: (key) => void processed.add(key),
-    failed(key) {
-      const count = (attempts[key] ?? 0) + 1;
-      attempts[key] = count;
-      if (count >= MAX_ATTEMPTS) processed.add(key);
-      return count;
-    },
-    async save() {
-      const value: State = { sha, processed: [...processed], attempts };
-      await ctx.db
-        .insert(syncState)
-        .values({ key: STATE_KEY, value })
-        .onConflictDoUpdate({ target: syncState.key, set: { value, updatedAt: new Date() } });
-    },
   };
 }
