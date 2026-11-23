@@ -77,7 +77,7 @@ export function extractPage(
     });
   });
 
-  $('script,style,noscript,svg,template,iframe,canvas').remove();
+  $('script,style,noscript,svg,template,iframe,canvas,[hidden]').remove();
   const body = $('body');
   body.find('br').replaceWith('\n');
   body.find(BLOCKS).each((_, el) => {
