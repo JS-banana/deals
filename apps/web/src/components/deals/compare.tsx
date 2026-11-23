@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { ListX, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { clearCompare, removeCompare, useCompare } from '@/hooks/use-compare';
 import { Link } from '@/i18n/navigation';
-import { type CompareRow, toLocale } from '@/lib/deal-view';
+import { type CompareRow, dealHref, toLocale } from '@/lib/deal-view';
 import { cn } from '@/lib/utils';
 import { ProductLogo } from './parts';
 
@@ -41,7 +41,7 @@ export function CompareBar() {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="pointer-events-none sticky bottom-0 z-40 shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <section
           aria-label={t('label')}
           className="pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border bg-card/95 p-2 pl-3 shadow-xl backdrop-blur sm:gap-3"
@@ -51,13 +51,16 @@ export function CompareBar() {
           </p>
           <ul className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
             {rows.map((row) => (
-              <li key={row.slug} className="shrink-0">
+              <li key={row.id} className="shrink-0">
                 <span className="inline-flex h-10 items-center gap-2 rounded-lg bg-muted pr-1 pl-2 text-sm">
                   <ProductLogo product={row} size="sm" />
-                  <span className="max-w-24 truncate">{row.name}</span>
+                  <span className="max-w-24 truncate">
+                    {row.name}
+                    {rows.some((r) => r.slug === row.slug && r.id !== row.id) && ` · ${row.plan}`}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => removeCompare(row.slug)}
+                    onClick={() => removeCompare(row.id)}
                     aria-label={t('remove', { name: row.name })}
                     className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-background hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
@@ -80,9 +83,11 @@ export function CompareBar() {
             type="button"
             variant="ghost"
             onClick={clearCompare}
-            className="hidden h-10 shrink-0 px-3 text-sm text-muted-foreground sm:inline-flex"
+            aria-label={t('clear')}
+            className="size-10 shrink-0 px-0 text-sm text-muted-foreground sm:w-auto sm:px-3"
           >
-            {t('clear')}
+            <ListX className="size-4 sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">{t('clear')}</span>
           </Button>
         </section>
       </div>
@@ -117,11 +122,11 @@ export function CompareBar() {
                 <tr>
                   <td className="sticky left-0 z-10 bg-popover" />
                   {rows.map((row) => (
-                    <th key={row.slug} scope="col" className="min-w-52 p-3 text-left align-top">
+                    <th key={row.id} scope="col" className="min-w-52 p-3 text-left align-top">
                       <span className="flex items-center gap-2">
                         <ProductLogo product={row} size="sm" />
                         <Link
-                          href={`/p/${row.slug}`}
+                          href={dealHref(row.slug, row.id)}
                           onClick={() => setOpen(false)}
                           className="truncate font-semibold underline-offset-4 hover:underline"
                         >
@@ -143,7 +148,7 @@ export function CompareBar() {
                     </th>
                     {rows.map((row) => (
                       <td
-                        key={row.slug}
+                        key={row.id}
                         className={cn(
                           'border-t p-3 align-top',
                           field === 'price' && 'font-semibold tabular-nums',

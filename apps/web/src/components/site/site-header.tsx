@@ -2,6 +2,7 @@ import { connection } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Brand } from './brand';
+import { CommandSearch } from './command-search';
 import { LocaleSwitch } from './locale-switch';
 import { MobileNav } from './mobile-nav';
 import { NAV_ITEMS } from './nav-items';
@@ -35,6 +36,7 @@ export async function SiteHeader() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1">
+            <CommandSearch />
             <SavedLink />
             <div className="hidden items-center gap-1 md:flex">
               <LocaleSwitch />

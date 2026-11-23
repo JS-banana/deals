@@ -1,6 +1,7 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { Brand } from './brand';
+import { TipForm } from './tip-form';
 
 const REPO = 'https://github.com/JS-banana/deals';
 
@@ -33,6 +34,7 @@ export function SiteFooter() {
           <a href={`${REPO}/issues`} className="hover:text-foreground">
             {t('feedback')}
           </a>
+          <TipForm />
           <a href={REPO} className="hover:text-foreground">
             GitHub
           </a>

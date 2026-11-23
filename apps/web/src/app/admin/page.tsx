@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { FilterLinks } from '@/components/admin/filter-links';
-import { fmtTime, KIND_BADGE, STATUS_LABEL } from '@/components/admin/format';
+import { fmtTime, KIND_BADGE, SHADOW_LABEL, STATUS_LABEL } from '@/components/admin/format';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -46,6 +46,7 @@ export default async function QueuePage({
                 <TableHead className="min-w-64">原因</TableHead>
                 <TableHead className="text-right">置信度</TableHead>
                 <TableHead className="text-right">变更 / 证据</TableHead>
+                <TableHead>审校 / 审批</TableHead>
                 <TableHead>提交时间</TableHead>
               </TableRow>
             </TableHeader>
@@ -72,6 +73,22 @@ export default async function QueuePage({
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {r.changeCount} / {r.evidenceCount}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col items-start gap-1">
+                      {r.shadowDecision && (
+                        <Badge variant="outline">{SHADOW_LABEL[r.shadowDecision.action]}</Badge>
+                      )}
+                      {status !== 'pending' && (
+                        <span>{r.reviewedBy === 'ai' ? 'AI 自动审批' : '人工审批'}</span>
+                      )}
+                      {status === 'pending' && r.reviewNote && <span>{r.reviewNote}</span>}
+                      {status === 'approved' && r.dealId && (
+                        <Link href={`/admin/deals/${r.dealId}`} className="underline">
+                          查看优惠
+                        </Link>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">{fmtTime(r.createdAt)}</TableCell>
                 </TableRow>

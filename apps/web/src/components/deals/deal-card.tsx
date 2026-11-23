@@ -6,6 +6,7 @@ import {
   categoryName,
   compareRow,
   deadline,
+  dealHref,
   exceptionBadges,
   priceParts,
   toLocale,
@@ -43,7 +44,7 @@ export function DealCard({ deal, now }: { deal: DealView; now: Date }) {
         <div className="min-w-0 flex-1">
           <h3 className="truncate leading-snug font-semibold">
             <Link
-              href={`/p/${product.slug}`}
+              href={dealHref(product.slug, deal.id)}
               className="outline-none after:absolute after:inset-0 after:rounded-2xl"
             >
               {product.name}
@@ -60,7 +61,7 @@ export function DealCard({ deal, now }: { deal: DealView; now: Date }) {
         </div>
         <div className="-mt-1 -mr-1.5 flex shrink-0">
           <CompareToggle row={compareRow(deal, now, locale, t, fmt)} variant="icon" />
-          <SaveButton slug={product.slug} name={product.name} className="size-9" />
+          <SaveButton slug={product.slug} dealId={deal.id} name={product.name} className="size-9" />
         </div>
       </header>
       <p className="mt-2.5 line-clamp-2 text-sm text-muted-foreground">

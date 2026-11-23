@@ -2,6 +2,7 @@ import { type DealView, dealState, pick } from '@deals/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getFormatter, getTranslations } from 'next-intl/server';
+import { CommunityVotes } from '@/components/deals/community-votes';
 import { DealCard } from '@/components/deals/deal-card';
 import {
   DealFacts,
@@ -20,11 +21,12 @@ import {
   getPublishedDeals,
   siteUrl,
 } from '@/lib/data';
-import { categoryName, deadline, logoSrc, mainDeal, priceParts } from '@/lib/deal-view';
+import { categoryName, deadline, dealHref, logoSrc, mainDeal, priceParts } from '@/lib/deal-view';
 import { alternatesFor, JsonLd, keywordList, pageUrl } from '@/lib/seo';
 
 export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): Promise<Metadata> {
   const { slug } = await props.params;
+  const { offer } = await props.searchParams;
   const [locale, deals, t, td, fmt] = await Promise.all([
     getLang(),
     getProductDeals(slug),
@@ -33,10 +35,11 @@ export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): 
     getFormatter(),
   ]);
   const now = getNow();
-  const deal = mainDeal(deals, now);
+  const deal = mainDeal(deals, now, offer);
   if (!deal) return {};
   const price = priceParts(deal, locale, td);
-  const offer = [
+  const summary = [
+    price.benefit,
     price.price && `${price.price}${price.unit ? ` ${price.unit}` : ''}`,
     price.discount,
   ]
@@ -45,7 +48,7 @@ export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): 
   const due = deadline(deal, now, td, fmt);
   const description = [
     pick(deal.product.summary, locale),
-    offer,
+    summary,
     due.secondary ? `${due.primary} · ${due.secondary}` : due.primary,
   ]
     .filter(Boolean)
@@ -65,13 +68,14 @@ export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): 
       event,
       categoryName(deal.product.category, locale),
     ],
-    alternates: alternatesFor(`/p/${slug}`, locale),
+    alternates: alternatesFor(offer === undefined ? `/p/${slug}` : dealHref(slug, deal.id), locale),
     openGraph: { title, description },
   };
 }
 
 export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>) {
   const { slug } = await props.params;
+  const { offer } = await props.searchParams;
   const [locale, deals, allDeals, history, t, tc] = await Promise.all([
     getLang(),
     getProductDeals(slug),
@@ -81,13 +85,13 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
     getTranslations('common'),
   ]);
   const now = getNow();
-  const deal = mainDeal(deals, now);
+  const deal = mainDeal(deals, now, offer);
   if (!deal) notFound();
   const { product } = deal;
 
   const points = history
     .filter((o) => o.dealId === deal.id && o.priceAmount !== null && o.currency === deal.currency)
-    .map((o) => ({ at: o.observedAt, amount: o.priceAmount ?? 0 }));
+    .map((o) => ({ id: o.id, at: o.observedAt, amount: o.priceAmount ?? 0 }));
 
   const similar: DealView[] = [];
   const candidates = allDeals
@@ -129,6 +133,7 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
             <DealFacts deal={deal} now={now} />
           </section>
           <DealSources deal={deal} now={now} />
+          <CommunityVotes dealId={deal.id} />
           <DealHistory deals={deals} currentId={deal.id} now={now} />
           {deal.currency && <PriceHistory points={points} currency={deal.currency} />}
         </div>
@@ -157,7 +162,10 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
           name: product.name,
           description: pick(product.summary, locale),
           category: categoryName(product.category, locale),
-          url: pageUrl(`/p/${product.slug}`, locale),
+          url: pageUrl(
+            offer === undefined ? `/p/${product.slug}` : dealHref(slug, deal.id),
+            locale,
+          ),
           ...(logo ? { image: siteUrl(logo) } : {}),
           ...(deal.priceAmount !== null && deal.currency
             ? {

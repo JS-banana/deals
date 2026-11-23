@@ -7,6 +7,7 @@ import { type ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 /**
@@ -17,6 +18,7 @@ export function DealModal({ children }: { children: ReactNode }) {
   const t = useTranslations('common');
   const router = useRouter();
   const desktop = useMediaQuery('(min-width: 768px)');
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(true);
 
   const onOpenChange = (next: boolean) => {
@@ -25,6 +27,7 @@ export function DealModal({ children }: { children: ReactNode }) {
     router.back();
   };
 
+  if (!hydrated) return null;
   if (desktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>

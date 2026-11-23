@@ -20,7 +20,11 @@ import { Link } from '@/i18n/navigation';
  * The server renders a card for every published deal; the browser decides which ones to show
  * because favorites only exist in localStorage.
  */
-export function SavedList({ items }: { items: { slug: string; card: ReactNode }[] }) {
+export function SavedList({
+  items,
+}: {
+  items: { slug: string; legacy: string | null; card: ReactNode }[];
+}) {
   const t = useTranslations('saved');
   const hydrated = useHydrated();
   const saved = useSaved();
@@ -42,6 +46,7 @@ export function SavedList({ items }: { items: { slug: string; card: ReactNode }[
   }
 
   const bySlug = new Map(items.map((item) => [item.slug, item.card]));
+  for (const item of items) if (item.legacy) bySlug.set(item.legacy, item.card);
   const list = [...saved].reverse().flatMap((slug) => {
     const card = bySlug.get(slug);
     return card ? [{ slug, card }] : [];

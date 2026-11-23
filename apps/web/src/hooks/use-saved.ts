@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-/** Favorites live in localStorage as an array of product slugs and sync across tabs. */
+/** New entries identify offers. Existing product bookmarks still open that product's main deal. */
 export const SAVED_KEY = 'deal-index:saved';
 
 const EMPTY: readonly string[] = [];
@@ -56,9 +56,13 @@ function write(slugs: readonly string[]) {
   for (const listener of listeners) listener();
 }
 
-export const toggleSaved = (slug: string) => {
+export const toggleSaved = (key: string, slug: string) => {
   const current = getSnapshot();
-  write(current.includes(slug) ? current.filter((s) => s !== slug) : [...current, slug]);
+  write(
+    current.includes(key) || current.includes(slug)
+      ? current.filter((s) => s !== key && s !== slug)
+      : [...current, key],
+  );
 };
 
 export const clearSaved = () => write([]);

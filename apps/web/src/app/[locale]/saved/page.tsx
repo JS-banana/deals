@@ -19,11 +19,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SavedPage() {
   const [deals, t] = await Promise.all([getPublishedDeals(), getTranslations('saved')]);
   const now = getNow();
-  // One card per product: a product may have deals in several events; show its most relevant one.
   const bySlug = Map.groupBy(deals, (d) => d.product.slug);
   const items = [...bySlug].flatMap(([slug, productDeals]) => {
-    const deal = mainDeal(productDeals, now);
-    return deal ? [{ slug, card: <DealCard deal={deal} now={now} /> }] : [];
+    const main = mainDeal(productDeals, now);
+    return productDeals.map((deal) => ({
+      slug: `${slug}#${deal.id}`,
+      legacy: deal.id === main?.id ? slug : null,
+      card: <DealCard deal={deal} now={now} />,
+    }));
   });
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">

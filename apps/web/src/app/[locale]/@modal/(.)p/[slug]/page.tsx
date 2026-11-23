@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
+import { CommunityVotes } from '@/components/deals/community-votes';
 import { DealModal } from '@/components/deals/deal-modal';
 import {
   DealFacts,
@@ -8,14 +9,16 @@ import {
   ProductHeader,
 } from '@/components/deals/product-detail';
 import { getLang, getNow, getProductDeals } from '@/lib/data';
-import { mainDeal } from '@/lib/deal-view';
+import { dealHref, mainDeal } from '@/lib/deal-view';
 import { localePath } from '@/lib/seo';
 
 /** The deal over the listing (intercepts `/p/<slug>` on client-side navigation). */
 export default async function ProductModal({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ offer?: string | string[] }>;
 }) {
   const { slug } = await params;
   const [locale, deals, t] = await Promise.all([
@@ -24,7 +27,7 @@ export default async function ProductModal({
     getTranslations('product'),
   ]);
   const now = getNow();
-  const deal = mainDeal(deals, now);
+  const deal = mainDeal(deals, now, (await searchParams).offer);
   if (!deal) notFound();
   return (
     <DealModal>
@@ -34,6 +37,7 @@ export default async function ProductModal({
           <div className="order-2 space-y-6 md:order-1">
             <DealFacts deal={deal} now={now} />
             <DealSources deal={deal} now={now} />
+            <CommunityVotes dealId={deal.id} />
           </div>
           <div className="order-1 md:order-2">
             <DealPanel deal={deal} now={now} />
@@ -41,7 +45,7 @@ export default async function ProductModal({
         </div>
         {/* A plain anchor: a full navigation skips interception and renders the product page. */}
         <a
-          href={localePath(`/p/${slug}`, locale)}
+          href={localePath(dealHref(slug, deal.id), locale)}
           className="inline-flex min-h-10 items-center text-sm font-medium underline-offset-4 hover:underline"
         >
           {t('viewFull')}

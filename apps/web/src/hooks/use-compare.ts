@@ -24,8 +24,8 @@ function subscribe(listener: () => void) {
 
 /** Adds the row, or removes it when already picked. Returns false when the list is full. */
 export function toggleCompare(row: CompareRow): boolean {
-  if (rows.some((r) => r.slug === row.slug)) {
-    set(rows.filter((r) => r.slug !== row.slug));
+  if (rows.some((r) => r.id === row.id)) {
+    set(rows.filter((r) => r.id !== row.id));
     return true;
   }
   if (rows.length >= COMPARE_MAX) return false;
@@ -33,7 +33,7 @@ export function toggleCompare(row: CompareRow): boolean {
   return true;
 }
 
-export const removeCompare = (slug: string) => set(rows.filter((r) => r.slug !== slug));
+export const removeCompare = (id: number) => set(rows.filter((r) => r.id !== id));
 export const clearCompare = () => set(EMPTY);
 
 export function useCompare() {

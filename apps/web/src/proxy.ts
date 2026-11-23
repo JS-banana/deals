@@ -1,11 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
 import { routing } from './i18n/routing';
+import { isAdminAuthorized } from './lib/admin-auth';
 
 const handleI18n = createMiddleware(routing);
 
 export default function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  if (path === '/admin' || path.startsWith('/admin/')) return adminGate(request);
   if (path.endsWith('.txt')) {
     const key = process.env.INDEXNOW_KEY;
     if (key && path === `/${key}.txt` && ['GET', 'HEAD'].includes(request.method)) {
@@ -15,45 +17,26 @@ export default function proxy(request: NextRequest) {
     }
     return NextResponse.next();
   }
-  if (path === '/admin' || path.startsWith('/admin/')) {
-    return adminGate(request);
-  }
   return handleI18n(request);
 }
 
 /** HTTP Basic auth for the review console. Credentials come from ADMIN_USER / ADMIN_PASSWORD. */
 function adminGate(request: NextRequest) {
-  const user = process.env.ADMIN_USER;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!user || !password)
+  const result = isAdminAuthorized(request.headers.get('authorization'));
+  if (result === 'unconfigured')
     return new NextResponse('Admin console is not configured.', { status: 503 });
-  const [scheme, encoded] = (request.headers.get('authorization') ?? '').split(' ');
-  if (scheme === 'Basic' && encoded) {
-    const decoded = atob(encoded);
-    const split = decoded.indexOf(':');
-    if (
-      split > 0 &&
-      safeEqual(decoded.slice(0, split), user) &&
-      safeEqual(decoded.slice(split + 1), password)
-    ) {
-      return NextResponse.next();
-    }
-  }
+  if (result === 'ok') return NextResponse.next();
   return new NextResponse('Authentication required.', {
     status: 401,
     headers: { 'WWW-Authenticate': 'Basic realm="deals-admin", charset="UTF-8"' },
   });
 }
 
-function safeEqual(a: string, b: string) {
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  }
-  return diff === 0;
-}
-
 export const config = {
   // Public and admin pages, plus root-level IndexNow ownership files.
-  matcher: ['/((?!api|_next|_vercel|media|.*\\..*).*)', '/:key([A-Za-z0-9-]{8,128}).txt'],
+  matcher: [
+    '/admin/:path*',
+    '/((?!api|_next|_vercel|media|.*\\..*).*)',
+    '/:key([A-Za-z0-9-]{8,128}).txt',
+  ],
 };

@@ -1,7 +1,7 @@
 import { dealState, type Locale, pick } from '@deals/core';
 import { createFormatter, createTranslator } from 'next-intl';
 import { getPublishedDeals, siteUrl } from './data';
-import { categoryName, deadline, priceParts, type T } from './deal-view';
+import { categoryName, deadline, dealHref, priceParts, type T } from './deal-view';
 import { localePath } from './seo';
 
 const escapeXml = (text: string) => text.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -26,6 +26,7 @@ export async function renderFeed(locale: Locale): Promise<Response> {
     const price = priceParts(deal, locale, t);
     const due = deadline(deal, now, t, fmt);
     const headline = [
+      price.benefit,
       price.price && `${price.price}${price.unit ? ` ${price.unit}` : ''}`,
       price.discount,
     ]
@@ -38,11 +39,11 @@ export async function renderFeed(locale: Locale): Promise<Response> {
       deal.code ? `${t('code.label')}: ${deal.code}` : deal.noCode ? t('code.auto') : '',
       due.secondary ? `${due.primary} · ${due.secondary}` : due.primary,
     ].filter(Boolean);
-    const url = siteUrl(localePath(`/p/${deal.product.slug}`, locale));
+    const url = siteUrl(localePath(dealHref(deal.product.slug, deal.id), locale));
     return `    <item>
       <title>${escapeXml(`${deal.product.name} · ${headline}`)}</title>
       <link>${escapeXml(url)}</link>
-      <guid isPermaLink="false">${escapeXml(`${url}#deal-${deal.id}`)}</guid>
+      <guid isPermaLink="false">${escapeXml(`${siteUrl(localePath(`/p/${deal.product.slug}`, locale))}#deal-${deal.id}`)}</guid>
       <pubDate>${new Date(`${deal.checkedOn}T00:00:00Z`).toUTCString()}</pubDate>
       <category>${escapeXml(categoryName(deal.product.category, locale))}</category>
       <description>${escapeXml(lines.join(' | '))}</description>

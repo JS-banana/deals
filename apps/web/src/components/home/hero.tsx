@@ -1,5 +1,5 @@
 import { type DealEvent, type DealView, pick } from '@deals/core';
-import { Infinity as InfinityIcon, Search, Sparkles, Star, UserCheck } from 'lucide-react';
+import { Infinity as InfinityIcon, Sparkles, Star, UserCheck } from 'lucide-react';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { CouponLine, DeadlineText, PriceLine, ProductLogo } from '@/components/deals/parts';
 import { EventDates } from '@/components/events/event-parts';
@@ -8,11 +8,11 @@ import {
   cardNote,
   categoryName,
   deadline,
+  dealHref,
   eventPhase,
   priceParts,
   toLocale,
 } from '@/lib/deal-view';
-import { localePath } from '@/lib/seo';
 
 const QUICK_LINKS = [
   { href: '/category/ai', key: 'ai', icon: Sparkles },
@@ -42,7 +42,7 @@ function EditorPick({ deal, now }: { deal: DealView; now: Date }) {
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-base leading-snug font-semibold">
             <Link
-              href={`/p/${product.slug}`}
+              href={dealHref(product.slug, deal.id)}
               className="outline-none after:absolute after:inset-0 after:rounded-2xl"
             >
               {product.name}
@@ -64,7 +64,7 @@ function EditorPick({ deal, now }: { deal: DealView; now: Date }) {
 }
 
 /**
- * Compact hero (about 360px on desktop). Driven by the featured event when there is one, otherwise
+ * Driven by the featured event when there is one, otherwise
  * a generic site hero without event chrome.
  */
 export function Hero({
@@ -91,7 +91,7 @@ export function Hero({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_95%_0%,color-mix(in_oklch,var(--brand)_22%,transparent),transparent)]"
       />
-      <div className="relative mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center lg:gap-12 lg:px-8 lg:py-10">
+      <div className="relative mx-auto grid max-w-7xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center lg:gap-12 lg:px-8 lg:py-9">
         <div className="space-y-4">
           <div className="space-y-2">
             {event && phase && event.kind === 'seasonal' && (
@@ -119,38 +119,6 @@ export function Hero({
             </p>
           </div>
           {event && <EventDates event={event} now={now} variant="hero" showRange={false} />}
-          <search>
-            <form
-              action={`${localePath('/', locale)}#results`}
-              method="get"
-              className="flex max-w-xl gap-2"
-            >
-              <label htmlFor="hero-q" className="sr-only">
-                {t('searchLabel')}
-              </label>
-              <div className="relative flex-1">
-                <Search
-                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <input
-                  id="hero-q"
-                  type="search"
-                  name="q"
-                  enterKeyHint="search"
-                  autoComplete="off"
-                  placeholder={t('searchPlaceholder')}
-                  className="h-12 w-full rounded-xl bg-card pr-3 pl-10 text-base text-card-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-brand/60 sm:text-sm"
-                />
-              </div>
-              <button
-                type="submit"
-                className="h-12 shrink-0 rounded-xl bg-brand px-5 text-sm font-semibold text-brand-foreground transition-[filter] outline-none hover:brightness-95 focus-visible:ring-3 focus-visible:ring-brand/60"
-              >
-                {t('search')}
-              </button>
-            </form>
-          </search>
           <ul className="flex flex-wrap gap-2">
             {QUICK_LINKS.map(({ href, key, icon: Icon }) => (
               <li key={key}>

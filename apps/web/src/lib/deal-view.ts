@@ -137,6 +137,8 @@ export function deadline(d: DealView, now: Date, t: T, fmt: Fmt): Deadline {
 }
 
 export interface PriceParts {
+  benefit: string | null;
+  estimate: string | null;
   price: string | null;
   /** The price split for display typography; null when the deal has no price. */
   priceSplit: ReturnType<typeof moneyParts> | null;
@@ -163,6 +165,11 @@ export function priceParts(d: DealView, locale: Locale, t: T): PriceParts {
   const unit = d.billing === 'other' ? null : t(`billing.${d.billing}`);
   const planSaysUnit = unit && pick(d.plan, locale).toLowerCase().includes(unit.toLowerCase());
   return {
+    benefit:
+      d.offerType !== 'discount' && d.offerType !== 'lifetime'
+        ? pick(d.benefitSummary, locale) || null
+        : null,
+    estimate: money(d.estimatedValue),
     price: money(d.priceAmount),
     priceSplit:
       d.priceAmount !== null && d.currency ? moneyParts(d.priceAmount, d.currency, locale) : null,
@@ -197,8 +204,17 @@ export function exceptionBadges(d: DealView, now: Date): ExceptionBadges {
   };
 }
 
-/** The deal shown on a product page: active first, then the most recently checked. */
-export function mainDeal(deals: readonly DealView[], now: Date): DealView | undefined {
+export function dealHref(slug: string, id: number) {
+  return `/p/${slug}?offer=${id}`;
+}
+
+/** Explicit offer links resolve within the product. Legacy product links show its main deal. */
+export function mainDeal(
+  deals: readonly DealView[],
+  now: Date,
+  offer?: string | string[],
+): DealView | undefined {
+  if (offer !== undefined) return deals.find((deal) => String(deal.id) === offer);
   const ended = (d: DealView) => Number(dealState(d, now) === 'ended');
   return [...deals].sort(
     (a, b) => ended(a) - ended(b) || b.checkedOn.localeCompare(a.checkedOn) || b.id - a.id,
@@ -226,6 +242,7 @@ export function relativeDay(day: string, now: Date, t: T): string {
 
 /** Pre-formatted strings for the comparison table; computed on the server, kept in a client store. */
 export interface CompareRow {
+  id: number;
   slug: string;
   locale: Locale;
   name: string;
@@ -247,13 +264,17 @@ export function compareRow(d: DealView, now: Date, locale: Locale, t: T, fmt: Fm
   const due = deadline(d, now, t, fmt);
   const dash = '—';
   return {
+    id: d.id,
     slug: d.product.slug,
     locale,
     name: d.product.name,
     logoPath: d.product.logoPath,
     category: d.product.category,
     plan: pick(d.plan, locale) || dash,
-    price: price.price ? `${price.price}${price.unit ? ` ${price.unit}` : ''}` : dash,
+    price:
+      [price.benefit, price.price && `${price.price}${price.unit ? ` ${price.unit}` : ''}`]
+        .filter(Boolean)
+        .join(' · ') || dash,
     original: price.original ?? dash,
     discount: price.discount ?? dash,
     renewal: pick(d.renewal, locale) || dash,
