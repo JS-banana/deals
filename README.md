@@ -1,116 +1,63 @@
+<div align="center">
+
+<img src="apps/web/src/app/icon.svg" alt="" width="48" height="48" />
+
 # 好价清单 · Deal Index
 
-[deals.laifuyou.com](https://deals.laifuyou.com) · 中文 / [English](https://deals.laifuyou.com/en)
+从黑五、网一到常年优惠，查清软件首期付多少、续费怎么算、老用户能不能用。
 
-全球软件优惠目录，收录黑五（Black Friday）、网一（Cyber Monday）等大促和常年优惠。按用途比较实付价格、折扣、续费条件、优惠码和截止日期，每条优惠都能追溯到来源。数据每天自动更新：AI 提取中文文案、翻译英文，人工审核后发布。
+[浏览优惠](https://deals.laifuyou.com) · [订阅 RSS](https://deals.laifuyou.com/feed.xml) · [English README](README.en.md)
 
-> **English.** Deal Index is a bilingual (Chinese / English) index of software deals: Black Friday, Cyber Monday and evergreen offers on Mac apps, AI tools, developer tools and SaaS. Every deal lists the real price, discount, renewal terms, coupon code and deadline, linked to its source. An AI pipeline collects, verifies and translates deals daily, and new deals are reviewed before they go live. Built with Next.js, Tailwind CSS, shadcn/ui, PostgreSQL and Drizzle, self-hosted with Docker Compose. The rest of this README is in Chinese.
+[![CI](https://github.com/JS-banana/deals/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JS-banana/deals/actions/workflows/ci.yml)
+[![MIT 许可证](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## 架构
+</div>
 
-```
-apps/
-  web/        Next.js 16（App Router）+ Tailwind CSS 4 + shadcn/ui + next-intl（中文默认，/en 英文）
-              公开站点、/admin 审核后台、/media 产品图标、RSS、站点地图
-  worker/     数据管线：上游同步 → 抓取商家页 → AI 提取 → 规则校验 → 提案；复查、翻译、图标、定时任务
-packages/
-  core/       领域模型与规则：zod 数据格式、活动状态与时区、筛选排序、金额格式（含单元测试）
-  db/         Drizzle 表结构、迁移、查询、审核发布事务、初始数据
-deploy/       服务器部署：拉取式自动部署、数据库备份、systemd 定时器、nginx 站点
-compose.yaml  生产环境：postgres + migrate + web + worker
-```
+![TablePro 买断与 Koofr 年付方案并排对比，列出原币价格、续费条件、适用对象和优惠码](docs/images/compare-zh.png)
 
-三类核心数据：**产品**（长期存在，积累历年优惠）、**活动**（黑五网一、常年优惠……）、**优惠**（某产品在某活动中的报价）。价格以金额、币种和计费周期存储，展示时按语言格式化。
+_2026 年 11 月 22 日的优惠对比 · [查看大图](docs/images/compare-zh.png)_
 
-worker 不直接改动已发布数据：新增、变更和异常都以**提案**形式进入 `/admin` 审核队列，附带字段差异和原文证据，通过后才会发布。
+## 怎么挑优惠
 
-## 本地开发
+- **按购买条件筛选。** 可以按软件分类和活动状态浏览，也可以直接筛选「可买断」或「老用户可用」。选两到三款加入对比，就能像上图一样逐项查看条款。
+- **核对报价。** 价格按商家原币种和计费周期展示。商家只公布折扣时，页面就显示折扣。详情页附核对日期和来源链接，有价格记录时也能查看历史变化。
+- **留到以后再看。** 点优惠卡片上的书签，之后从「我的收藏」找回来。收藏只保存在当前浏览器，无需账号。
 
-需要 Node.js 22.18+（推荐 24）、pnpm 12 和 Docker。
+## 优惠从哪里来
 
-```sh
-pnpm install
-cp .env.example .env          # 填写 POSTGRES_PASSWORD、DATABASE_URL、MEDIA_DIR（绝对路径）等
-pnpm db:up                    # 启动本地 Postgres（127.0.0.1:54329）
-pnpm db:migrate && pnpm db:seed
-pnpm dev                      # http://localhost:3000，后台在 /admin
-```
+「商家已核实」表示核对当天能在商家公开页面确认该活动。「社区收录」表示线索来自社区清单，仍待商家页面佐证。
 
-`pnpm dev`、`pnpm worker`、`pnpm db:migrate`、`pnpm db:seed` 会自动读取根目录的 `.env`，不用手动导出环境变量。
+Worker 每天从社区清单发现新优惠，并定期复查已收录的商家页面。AI 提取条款、生成中文文案并翻译成英文，程序对照原文核验报价和引文。新增和变更会生成提案，默认由维护者在 `/admin` 审核后发布。[上游社区清单](https://github.com/trungdq88/Awesome-Black-Friday-Cyber-Monday) · [采集与翻译流程](docs/pipeline.md)
 
-常用命令：`pnpm lint`（Biome）、`pnpm typecheck`、`pnpm test`（Vitest）、`pnpm build`。修改 `packages/db/src/schema.ts` 后运行 `pnpm db:generate` 生成迁移。
+发现价格有变、链接失效，或想推荐优惠，可以在 Issue 里附上商家页面和需要核对的条款。[反馈与推荐](https://github.com/JS-banana/deals/issues)
 
-### Git 提交
+## 本地运行
 
-新克隆的开发仓库在安装依赖后运行一次 `git config --local core.hooksPath .githooks`，即可在 `git commit` 时检查提交信息。推送到 `main` 和提交 PR 时，CI 会用同一份 commitlint 配置检查本次新增的提交。
-
-标题采用 `type(scope): 摘要`，范围可省略，中文和英文都可以。用 `feat` 表示新功能、`fix` 表示修复、`docs` 表示文档、`ci` 表示持续集成，其他类型沿用 commitlint 的常规预设。每次提交围绕一个可以独立回滚的改动，原因和取舍可另起一段写在正文。[Conventional Commits 规范](https://www.conventionalcommits.org/zh-hans/v1.0.0/)
-
-```text
-fix(seo): 修复首页分页的索引状态
-feat(worker): submit changed URLs to IndexNow
-docs: clarify local setup
-```
-
-## 数据管线
-
-运行 `pnpm worker <job>`（如 `pnpm worker translate --dry-run`）：
-
-| 任务             | 作用                                                                                                                         |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `sync-upstream`  | 从社区清单同步新条目，抓取商家页，用 AI 提取结构化字段和中文文案，翻译英文，校验后提交审核                                   |
-| `recheck`        | 复查已发布优惠的商家页：记录价格历史；有变化时提交更新提案，失效时提交异常提案                                               |
-| `translate`      | 为缺英文或中文已变化的字段生成英文（`--limit N`、`--refresh`、`--dry-run`）                                                  |
-| `translate-eval` | 抽样评估翻译质量，不写库（`--sample N`，默认 15）                                                                            |
-| `logos`          | 下载产品图标                                                                                                                 |
-| `indexnow`       | 将公开优惠和活动的变化通知 Bing 等支持 IndexNow 的搜索引擎。`--dry-run` 可在未配置密钥时预览待推送的网址                     |
-| `daily`          | 依次执行翻译、下载图标、同步上游和复查                                                                                       |
-| `schedule`       | 常驻进程：每天 06:10 执行 `daily`，14:10、22:10 执行 `recheck`，每小时 :40 执行 `translate`、:55 执行 `indexnow`（北京时间） |
-
-模型通过兼容 OpenAI 的 `/chat/completions` 接口调用（`LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`），智谱 GLM 和 DeepSeek 都可以。
-
-### 翻译
-
-中文是唯一的源稿，英文只由翻译流程生成：提取和复查只写中文（`en` 留空），其余交给翻译。
-
-- **只译一次**：翻译结果存入 `translations` 表（翻译记忆），键是规范化中文（去首尾空白、合并空白、NFC）的 sha256。同一句中文（如“Pro 买断”）只译一次，所有字段复用。
-- **何时重译**：字段 `en` 为空，或 `en` 恰好是我们为*旧版*中文生成的译文（中文改过了）。`en` 等于当前中文对应的记忆译文即为最新，不动。其他非空 `en`（人工写的，或记忆表出现之前的）原样保留，加 `--refresh` 才覆盖。记忆命中（分数 ≥ 70）直接写入，不调用模型。
-- **提案时就译好**：`sync-upstream` / `recheck` 在提交提案前用同一流程翻译 payload，审批即双语发布；翻译失败则 `en` 留空，审批后由每小时的 `translate` 补上。
-- **质量流水线**（多条文本合并为一次请求，规模受条数和字数限制）：① 翻译（reasoning low，系统提示含英文风格指南和命中的术语表）；② 审校（reasoning medium，按忠实、术语、自然度、简洁、格式打分，并叠加确定性检查：数字/优惠码/残留中文、术语表）；③ 低于 85 分或确定性检查不过的重写并复审，最多两轮。无确定性失败且 ≥ 70 分才发布并写入记忆，否则保持原样（前台回退到中文）并计入 `failed`。
-- **术语表**：`apps/worker/src/glossary.json`（有 `version`），每条 `{ zh, en: [允许的译法], note? }`，第一个为规范译法。只把出现在当前批次的条目放进提示；译文缺少术语只记为问题，不会拦截发布。
-- **评估**：`node src/main.ts translate-eval --sample 15` 对确定性样本跑完整流水线（不写字段和记忆），输出逐条中文、旧译文、新译文、分数和问题，以及平均分、≥85 占比、确定性失败、术语缺失和 token。更换模型或修改提示词前先跑它。
-- **改提示词或术语表后**：修改 `prompts.ts` 的翻译提示词时同步更新 `PROMPT_VERSION`。已有记忆不会自动失效；要全部重译，清空 `translations` 表后运行 `translate --refresh`。
-
-环境变量：`LLM_*` 用于提取和复查；`TRANSLATE_BASE_URL`、`TRANSLATE_API_KEY`、`TRANSLATE_MODEL`（可选 `TRANSLATE_EXTRA_BODY`）用于翻译，三项都设置才生效，否则回退到 `LLM_*`。`api.openai.com` 会自动使用 `max_completion_tokens` 和 `reasoning_effort`，不发送 `temperature`。
-
-## 部署
-
-服务器上的目录为 `~/projects/deals`，`.env` 只保存在服务器上，权限为 600。
+需要 Node.js 22.18 或更高版本、pnpm 12.21.0，以及带 Compose 的 Docker。在新克隆的仓库根目录运行以下命令，即可用仓库自带的黑五网一数据浏览目录。
 
 ```sh
-git clone https://github.com/JS-banana/deals.git ~/projects/deals && cd ~/projects/deals
-cp .env.example .env && chmod 600 .env   # 填写生产配置
+pnpm install --frozen-lockfile
+cp -n .env.example .env
+LLM_API_KEY=unused pnpm db:up --wait
+pnpm db:migrate
+pnpm db:seed
+SITE_URL=http://localhost:3000 pnpm dev
+```
+
+打开 [本地首页](http://localhost:3000) 即可看到优惠。进入 [审核后台](http://localhost:3000/admin) 时，使用根目录 `.env` 中的 `ADMIN_USER` 和 `ADMIN_PASSWORD` 登录。
+
+本地预览只启动 PostgreSQL 和 Web。Compose 解析配置时会检查 Worker 的密钥，所以上面的 `unused` 仅供启动数据库时使用。运行采集或翻译任务前，再在 `.env` 中填写有效的 `LLM_*` 配置。
+
+## 自托管与开发
+
+在生产环境的 `.env` 中设置站点地址 `SITE_URL`、数据库密码 `POSTGRES_PASSWORD`、后台凭据和 Worker 的模型配置，然后用 Docker Compose 启动服务。
+
+```sh
 docker compose up -d --build
-docker compose run --rm migrate node packages/db/src/seed.ts   # 首次部署导入初始数据
 ```
 
-- **自动部署**：`deals-deploy.timer` 每 3 分钟检查一次 `origin/main`，对应提交的 CI 通过后构建并重启；健康检查失败会回滚到上一个版本。手动执行：`deploy/deploy.sh --force`。
-- **备份**：`deals-backup.timer` 每天 04:30 导出数据库到 `~/backups/deals`，保留 14 天。
-- **对外访问**：web 只监听 `127.0.0.1:3100`，由 nginx（`deploy/nginx/`）和 certbot 提供 HTTPS，前面是 Cloudflare。
-- **IndexNow**：用 `openssl rand -hex 16` 生成 `INDEXNOW_KEY` 并写入生产 `.env`。web 在根路径 `/<key>.txt` 提供验证文件。worker 首次提交中英文公开网址，以后每小时提交有变化或已下架的网址。提交结果可在 worker 日志中查看。
+Compose 会先执行数据库迁移，再启动 Web 和定时 Worker。Web 默认监听 `127.0.0.1:3100`，供反向代理转发。首次部署若要导入内置清单，运行 `docker compose run --rm migrate node packages/db/src/seed.ts`。
 
-安装定时器：
-
-```sh
-cp deploy/systemd/*.{service,timer} ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now deals-deploy.timer deals-backup.timer
-```
-
-## 反馈
-
-价格变化、链接失效或想推荐优惠，请提交 [Issue](https://github.com/JS-banana/deals/issues)。
-
-## 许可证
-
-源码采用 [MIT 许可证](LICENSE)。各商家的产品名称、商标和活动条款归各自权利人所有。
+- [环境变量示例](.env.example) · [Compose 配置](compose.yaml) · [Nginx、自动部署与备份脚本](deploy/)
+- [Web 前台与审核后台](apps/web/) · [采集 Worker](apps/worker/) · [领域模型](packages/core/) · [数据库与迁移](packages/db/)
+- [贡献指南与提交前检查](CONTRIBUTING.md)
