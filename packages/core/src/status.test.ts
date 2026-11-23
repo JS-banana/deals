@@ -8,6 +8,7 @@ const base = {
   endsAt: null,
   dateZone: null,
   observedLiveOn: null,
+  observedEndedAt: null,
 };
 const at = (iso: string) => new Date(iso);
 
@@ -20,6 +21,18 @@ describe('calendarDay', () => {
 });
 
 describe('dealState', () => {
+  it('prioritizes a merchant end observation over the advertised schedule', () => {
+    const d = {
+      ...base,
+      startsOn: '2026-11-01',
+      endsAt: '2026-12-04T12:00:00Z',
+      endsOn: '2026-12-04',
+      observedEndedAt: '2026-12-01T10:00:00Z',
+    };
+    expect(dealState(d, at('2026-12-01T10:00:01Z'))).toBe('ended');
+    expect(isEndingSoon(d, at('2026-12-01T10:00:01Z'))).toBe(false);
+  });
+
   it('treats a precise end instant as exclusive', () => {
     const d = { ...base, startsOn: '2026-11-19', endsAt: '2026-12-01T08:00:00Z' };
     expect(dealState(d, at('2026-12-01T07:59:59Z'))).toBe('live');

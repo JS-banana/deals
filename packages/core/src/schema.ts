@@ -21,6 +21,9 @@ export type CategorySlug = (typeof CATEGORY_SLUGS)[number];
 export const BILLING = ['one_time', 'first_year', 'year', 'month', 'other'] as const;
 export type Billing = (typeof BILLING)[number];
 
+export const OFFER_TYPES = ['discount', 'free_credit', 'free_trial', 'lifetime', 'bundle'] as const;
+export type OfferType = (typeof OFFER_TYPES)[number];
+
 export const PUBLISH_STATUS = ['draft', 'published', 'hidden'] as const;
 export type PublishStatus = (typeof PUBLISH_STATUS)[number];
 
@@ -67,6 +70,11 @@ export type DealEvent = z.infer<typeof eventSchema>;
 
 export const dealSchema = z
   .object({
+    offerKey: slug.max(128).default('default'),
+    offerType: z.enum(OFFER_TYPES).default('discount'),
+    benefitSummary: localized.nullable().default(null),
+    estimatedValue: z.number().positive().nullable().default(null),
+    howToClaim: localized.nullable().default(null),
     plan: localized,
     priceAmount: z.number().nonnegative().nullable(),
     originalAmount: z.number().positive().nullable(),
@@ -85,6 +93,7 @@ export const dealSchema = z
     endsAt: instant.nullable(),
     dateZone: timeZone.nullable(),
     observedLiveOn: isoDate.nullable(),
+    observedEndedAt: instant.nullable().default(null),
     oneTime: z.boolean(),
     existingUsers: z.boolean(),
     terms: localized,
@@ -103,8 +112,12 @@ export const dealSchema = z
       issue('currency', 'currency is required when an amount is set');
     if (d.discountAmount !== null && !d.currency)
       issue('currency', 'currency is required for a discount amount');
-    if (d.priceAmount === null && d.discountPercent === null && d.discountAmount === null)
-      issue('priceAmount', 'a deal needs a price or a discount');
+    if (d.estimatedValue !== null && !d.currency)
+      issue('currency', 'estimated value requires currency');
+    if (d.offerType === 'discount' || d.offerType === 'lifetime') {
+      if (d.priceAmount === null && d.discountPercent === null && d.discountAmount === null)
+        issue('priceAmount', 'a deal needs a price or a discount');
+    } else if (!d.benefitSummary) issue('benefitSummary', 'describe the stated benefit');
     if (d.code && d.noCode) issue('noCode', 'noCode conflicts with a coupon code');
     if (d.startsOn && d.endsOn && d.startsOn > d.endsOn) issue('endsOn', 'ends before it starts');
     if (d.startsAt && d.endsAt && Date.parse(d.startsAt) >= Date.parse(d.endsAt))

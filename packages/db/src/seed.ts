@@ -193,7 +193,7 @@ await db.transaction(async (tx) => {
         rank: index * 10,
       })
       .onConflictDoUpdate({
-        target: [deals.productId, deals.eventId],
+        target: [deals.productId, deals.eventId, deals.offerKey],
         set: { rank: index * 10 },
       });
   }
