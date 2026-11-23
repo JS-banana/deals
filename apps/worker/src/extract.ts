@@ -66,7 +66,7 @@ const shortSummary = z
   .string()
   .trim()
   .min(1)
-  .max(30, 'product.summary must be at most 30 characters')
+  .max(60, 'product.summary must be at most 60 characters')
   .transform((zh) => ({ zh, en: '' }));
 const optional = <T extends z.ZodType>(schema: T) => schema.nullish().transform((v) => v ?? null);
 
