@@ -56,6 +56,17 @@ describe('extractPage', () => {
     }
   });
 
+  it('keeps the visible sale status and ignores hidden alternatives', () => {
+    const sale = extractPage(
+      `<div data-sale>
+        <p data-for="live">On sale until November 30.</p>
+        <p data-for="ended" hidden>This sale has <strong>ended</strong>.</p>
+      </div>`,
+      'https://acme.test/black-friday',
+    );
+    expect(sale.text).toBe('On sale until November 30.');
+  });
+
   it('collects icon candidates with absolute URLs and sizes', () => {
     expect(page.icons).toEqual([
       { href: 'https://acme.test/favicon-32.png', rel: 'icon', size: 32, type: 'image/png' },
