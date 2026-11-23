@@ -2,6 +2,14 @@ import type { Evidence } from '@deals/db';
 import { describe, expect, it } from 'vitest';
 import { type AuditCandidate, type AuditResult, decideProposal, shouldExecute } from './audit.ts';
 import { replayMetrics } from './audit-eval.ts';
+import {
+  AUDIT_SYSTEM,
+  EXTRACT_SYSTEM,
+  RECHECK_SYSTEM,
+  reviewSystem,
+  reviseSystem,
+  translateSystem,
+} from './prompts.ts';
 import { loadConfig } from './runtime.ts';
 import { missingMerchantEvidence } from './verify.ts';
 
@@ -234,4 +242,19 @@ it('measures edited approvals, rejected good offers and abstentions with separat
     manual: 1,
   });
   expect(replayMetrics([]).falseApprovals.rate).toBeNull();
+});
+
+it('includes JSON in every json_object system prompt and documents default-false flags in audit', () => {
+  for (const prompt of [
+    EXTRACT_SYSTEM,
+    RECHECK_SYSTEM,
+    AUDIT_SYSTEM,
+    translateSystem(''),
+    reviseSystem(''),
+    reviewSystem(''),
+  ]) {
+    expect(prompt).toMatch(/\bjson\b/i);
+  }
+  expect(AUDIT_SYSTEM).toContain('noCode, oneTime, existingUsers');
+  expect(AUDIT_SYSTEM).toContain('default to false when unstated');
 });

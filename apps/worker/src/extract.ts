@@ -196,6 +196,10 @@ export async function extractCandidate(
       });
       const deal = dealSchema.safeParse({
         ...value.deal,
+        benefitSummary:
+          value.deal.offerType === 'discount' || value.deal.offerType === 'lifetime'
+            ? null
+            : value.deal.benefitSummary,
         observedLiveOn: value.deal.observedLiveOn ? day : null,
         merchantUrl,
         sourceUrl: sourceRef,
