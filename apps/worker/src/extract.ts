@@ -15,8 +15,8 @@ import { z } from 'zod';
 import { zodParse } from './llm.ts';
 import { extractSystem, extractUser } from './prompts.ts';
 import { reviewProposal } from './review-proposal.ts';
-import { type Ctx, saveSnapshot, today } from './runtime.ts';
-import { translatePayload } from './translate.ts';
+import type { Ctx } from './runtime.ts';
+import { saveSnapshot, today } from './runtime.ts';
 import {
   type Catalog,
   cleanMerchantUrl,
@@ -351,7 +351,6 @@ export async function extractCandidate(
     ...notes,
   ].join('；');
 
-  const finished = await translatePayload(ctx, product, deal);
   const filed = await reviewProposal(
     ctx,
     {
@@ -364,7 +363,7 @@ export async function extractCandidate(
         notes,
         ...(input.curated ? { sourceTrust: 'curated' as const } : {}),
       },
-      payload: { product: finished.product, event, deal: finished.deal },
+      payload: { product, event, deal },
       changes: [],
       evidence,
       reason,

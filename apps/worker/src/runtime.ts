@@ -15,6 +15,7 @@ export interface Config {
   llm: LlmConfig;
   /** Translation: TRANSLATE_* when all three are set, otherwise the same provider as `llm`. */
   translate: LlmConfig;
+  translateReview: boolean;
   review: LlmConfig;
   auto: {
     create: boolean;
@@ -27,6 +28,9 @@ export interface Config {
 
 // Reasoning models can think for minutes before answering a batch.
 const TRANSLATE_TIMEOUT_MS = 240_000;
+
+const defaultExtraBody = (baseUrl: string | undefined): Record<string, unknown> =>
+  baseUrl?.includes('open.bigmodel.cn') ? { thinking: { type: 'disabled' } } : {};
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   let extraBody: Record<string, unknown> = { thinking: { type: 'disabled' } };
@@ -44,7 +48,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         baseUrl: env.TRANSLATE_BASE_URL,
         apiKey: env.TRANSLATE_API_KEY,
         model: env.TRANSLATE_MODEL,
-        extraBody: env.TRANSLATE_EXTRA_BODY ? JSON.parse(env.TRANSLATE_EXTRA_BODY) : {},
+        extraBody: env.TRANSLATE_EXTRA_BODY
+          ? JSON.parse(env.TRANSLATE_EXTRA_BODY)
+          : defaultExtraBody(env.TRANSLATE_BASE_URL),
         timeoutMs: TRANSLATE_TIMEOUT_MS,
       }
     : { ...llm, timeoutMs: TRANSLATE_TIMEOUT_MS };
@@ -54,7 +60,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           baseUrl: env.REVIEW_BASE_URL,
           apiKey: env.REVIEW_API_KEY,
           model: env.REVIEW_MODEL,
-          extraBody: env.REVIEW_EXTRA_BODY ? JSON.parse(env.REVIEW_EXTRA_BODY) : {},
+          extraBody: env.REVIEW_EXTRA_BODY
+            ? JSON.parse(env.REVIEW_EXTRA_BODY)
+            : defaultExtraBody(env.REVIEW_BASE_URL),
           timeoutMs: TRANSLATE_TIMEOUT_MS,
         }
       : translate;
@@ -80,6 +88,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     indexNowKey: env.INDEXNOW_KEY || undefined,
     llm,
     translate,
+    translateReview: env.TRANSLATE_LLM_REVIEW === 'true',
   };
 }
 

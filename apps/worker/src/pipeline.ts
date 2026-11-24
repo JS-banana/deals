@@ -14,10 +14,17 @@ export const PUBLISH_SCORE = 70;
 export const REVISE_BELOW = 85;
 export const MAX_REVISIONS = 2;
 /** One request carries at most this many texts or characters of Chinese. */
-const MAX_BATCH_ITEMS = 8;
-const MAX_BATCH_CHARS = 2500;
+const MAX_BATCH_ITEMS = 12;
+const MAX_BATCH_CHARS = 3500;
 // gpt-style reasoning tokens count against the cap, so leave generous room.
 const MAX_TOKENS = 16_000;
+
+export interface PipelineOptions {
+  review?: boolean;
+}
+
+const isFatalProviderError = (error: unknown) =>
+  /\bLLM HTTP (401|402|403|429)\b/.test(errorMessage(error));
 
 export interface Source {
   id: string;
@@ -159,7 +166,9 @@ async function stage<T extends { source: Source }, R>(
     async (batch) => {
       const results = await run(batch).catch(async (error) => {
         if (ctx.signal.aborted) throw error;
-        if (batch.length === 1) return [onFail(batch[0] as T, error)];
+        if (batch.length === 1 || isFatalProviderError(error)) {
+          return batch.map((item) => onFail(item, error));
+        }
         const single: R[] = [];
         for (const item of batch) {
           single.push(...(await run([item]).catch((e) => [onFail(item, e)])));
@@ -280,16 +289,38 @@ async function reviewStep(ctx: Ctx, batch: Draft[]): Promise<Outcome[]> {
   });
 }
 
+function evaluateDeterministic(batch: Draft[]): Outcome[] {
+  const entries: readonly GlossaryEntry[] = selectGlossary(batch.map((d) => d.source.zh));
+  return batch.map((draft) => {
+    const problem = draft.en
+      ? factProblem(draft.source, draft.en)
+      : (draft.error ?? 'no translation returned');
+    const problems = problem ? [problem] : [];
+    const glossary = draft.en ? glossaryIssues(draft.source.zh, draft.en, entries) : [];
+    return {
+      id: draft.source.id,
+      en: draft.en,
+      score: draft.en && problems.length === 0 ? 90 : 0,
+      dims: null,
+      problems,
+      glossary,
+      issues: [],
+      revisions: 0,
+    };
+  });
+}
+
 /**
- * Translate, review and revise `sources` as a whole: every stage batches across all of them, so
- * the revise and re-review requests are as full as the first. Returns one outcome per source, in
- * order; failures come back as unpublishable outcomes rather than throwing.
+ * Translate, evaluate and optionally review/revise `sources`. By default runs a single-pass
+ * deterministic check (0 extra LLM calls unless a number/code fails factProblem); pass
+ * `{ review: true }` to enable full LLM rubric review and up to `MAX_REVISIONS` rounds.
  */
 export async function runPipeline(
   llm: Llm,
   stats: Stats,
   signal: AbortSignal,
   sources: Source[],
+  options: PipelineOptions = {},
 ): Promise<Outcome[]> {
   const ctx: Ctx = { llm, stats, signal };
   const bySource = new Map(sources.map((s) => [s.id, s]));
@@ -310,6 +341,34 @@ export async function runPipeline(
 
   const best = new Map<string, Outcome>();
   const rounds = new Map<string, number>();
+
+  if (!options.review) {
+    const initial = evaluateDeterministic(pending);
+    for (const outcome of initial) best.set(outcome.id, outcome);
+    const redo = initial.filter((o) => o.en !== '' && o.problems.length > 0);
+    if (redo.length && !signal.aborted) {
+      for (const o of redo) rounds.set(o.id, 1);
+      const revised = await stage(
+        ctx,
+        redo.map((o) => ({
+          source: bySource.get(o.id) as Source,
+          current: o.en,
+          feedback: o.problems,
+        })),
+        (batch) => reviseStep(ctx, batch),
+        (item) => ({ source: item.source, en: '', error: 'revision failed' }),
+      );
+      for (const outcome of evaluateDeterministic(revised.filter((d) => d.en))) {
+        if (better(outcome, best.get(outcome.id))) best.set(outcome.id, outcome);
+      }
+    }
+    return sources.map((source) => ({
+      ...(best.get(source.id) ??
+        unreviewed({ source, en: '' }, signal.aborted ? 'aborted' : 'no translation returned')),
+      revisions: rounds.get(source.id) ?? 0,
+    }));
+  }
+
   for (let round = 0; pending.length; round++) {
     const reviewed = await stage(
       ctx,
@@ -323,7 +382,11 @@ export async function runPipeline(
     // Revise the best version so far, not the latest: a worse rewrite must not replace it.
     const redo = [...new Set(reviewed.map((o) => o.id))].flatMap((id) => {
       const base = best.get(id);
-      return base && needsRevision(base) ? [base] : [];
+      return base &&
+        needsRevision(base) &&
+        !(base.en === '' && base.problems.some((p) => p.startsWith('translation failed:')))
+        ? [base]
+        : [];
     });
     if (!redo.length || round >= MAX_REVISIONS || signal.aborted) break;
     for (const o of redo) rounds.set(o.id, round + 1);
