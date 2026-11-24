@@ -42,6 +42,7 @@ const sourceConfig = z.object({
   target: z.string(),
   enabled: z.boolean(),
   quota: z.number().int().positive().max(1000),
+  curated: z.boolean().optional(),
 });
 const legacyCursor = z.object({
   sha: z
@@ -102,7 +103,7 @@ async function examine(
     url,
     description: signal.title,
     offer: signal.rawText,
-    raw: [signal.title, signal.rawText].join('\n'),
+    raw: source.curated ? signal.rawText : [signal.title, signal.rawText].join('\n'),
   };
   const known = findKnown(catalog, entry, false);
   const trustedHosts = [...(known?.hosts ?? [])];
@@ -114,6 +115,7 @@ async function examine(
     sourceUrl: signal.sourceUrl,
     catalog,
     trustedHosts,
+    curated: source.curated === true,
   });
   if (result.status === 'retry') throw new Error(result.reason);
   return result.status === 'proposal' ? (result.filed ? 'proposals' : 'duplicates') : result.reason;
@@ -202,10 +204,19 @@ export async function syncSource(ctx: Ctx, source: SourceConfig, catalog: Catalo
     ctx.signal.throwIfAborted();
     const rows = pending.slice(i, i + 18);
     // Provider-wide failures retry the batch next run; per-signal failures have a bounded retry count.
-    const decisions = await triage(
-      ctx,
-      rows.map((r) => r.signal),
-    );
+    const decisions =
+      source.curated === true && source.type === 'github'
+        ? rows.map(({ signal }, index) => ({
+            id: index,
+            isDeal: true,
+            productName: signal.title,
+            offerType: 'discount' as const,
+            merchantUrl: signal.candidateUrls[0] ?? null,
+          }))
+        : await triage(
+            ctx,
+            rows.map((r) => r.signal),
+          );
     for (const [index, row] of rows.entries()) {
       ctx.signal.throwIfAborted();
       try {

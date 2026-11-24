@@ -4,7 +4,8 @@
     "type": "github",
     "target": "trungdq88/Awesome-Black-Friday-Cyber-Monday",
     "enabled": true,
-    "quota": 15
+    "curated": true,
+    "quota": 50
   },
   {
     "id": "jetbrains",

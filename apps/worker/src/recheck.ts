@@ -1,4 +1,11 @@
-import { type DealView, dealSchema, dealState, productSchema } from '@deals/core';
+import {
+  type DealView,
+  dealSchema,
+  dealState,
+  endInstant,
+  eventPhase,
+  productSchema,
+} from '@deals/core';
 import {
   dealVotes,
   desc,
@@ -6,17 +13,19 @@ import {
   type FieldChange,
   fileProposal,
   listDeals,
+  listEvents,
   pageSnapshots,
   priceObservations,
   sql,
 } from '@deals/db';
 import { z } from 'zod';
+import { extractCandidate } from './extract.ts';
 import { zodParse } from './llm.ts';
 import { RECHECK_SYSTEM, recheckUser } from './prompts.ts';
 import { reviewProposal } from './review-proposal.ts';
 import { type Ctx, type Job, saveSnapshot, today } from './runtime.ts';
 import { translatePayload } from './translate.ts';
-import { hostOf } from './upstream.ts';
+import { type Catalog, entryKey, hostOf, isSharedHost, loadCatalog } from './upstream.ts';
 import { bump, errorMessage, mapPool, sha256 } from './util.ts';
 import {
   codeAppears,
@@ -337,9 +346,81 @@ async function checkDeal(ctx: Ctx, view: DealView, priority: boolean): Promise<v
   return observe(observedPrice, codePresent);
 }
 
+const COMMUNITY_WATCH_HOSTS = new Set([
+  'reddit.com',
+  'news.ycombinator.com',
+  'v2ex.com',
+  'linux.do',
+  'slickdeals.net',
+  'ozbargain.com.au',
+  'dealabs.com',
+]);
+
+const isOfficialWatchHost = (host: string | null): host is string =>
+  host !== null &&
+  !isSharedHost(host) &&
+  ![...COMMUNITY_WATCH_HOSTS].some((h) => host === h || host.endsWith(`.${h}`));
+
+async function watchRenewal(ctx: Ctx, deal: DealView, catalog: Catalog) {
+  const candidates = [
+    ...(isOfficialWatchHost(hostOf(deal.sourceUrl ?? '')) && deal.sourceUrl
+      ? [deal.sourceUrl]
+      : []),
+    deal.merchantUrl,
+    ...(isOfficialWatchHost(hostOf(deal.product.website ?? '')) && deal.product.website
+      ? [deal.product.website]
+      : []),
+  ];
+  const watchUrls = [...new Set(candidates)];
+  const trustedHosts = [
+    ...new Set(watchUrls.map((url) => hostOf(url)).filter(isOfficialWatchHost)),
+  ];
+  bump(ctx.stats, 'renewalChecked');
+  let retryReason: string | null = null;
+  for (const watchUrl of watchUrls) {
+    const entry = {
+      key: entryKey(deal.product.name, watchUrl),
+      name: deal.product.name,
+      url: watchUrl,
+      section: deal.event.slug,
+      line: 0,
+      description: deal.product.summary.zh,
+      offer: JSON.stringify({
+        plan: deal.plan.zh,
+        offerType: deal.offerType,
+        billing: deal.billing,
+        priceAmount: deal.priceAmount,
+        currency: deal.currency,
+        discountPercent: deal.discountPercent,
+        code: deal.code,
+        endsOn: deal.endsOn,
+        endsAt: deal.endsAt,
+        observedEndedAt: deal.observedEndedAt,
+      }),
+      raw: '',
+    };
+    const result = await extractCandidate(ctx, {
+      entry,
+      sourceUrl: watchUrl,
+      catalog,
+      trustedHosts,
+      renewal: deal,
+    });
+    if (result.status === 'proposal') {
+      if (result.filed) bump(ctx.stats, 'renewalProposals');
+      return;
+    }
+    if (result.status === 'retry') retryReason = result.reason;
+  }
+  if (retryReason) throw new Error(retryReason);
+}
+
 export const recheck: Job = async (ctx) => {
   const now = new Date();
-  const published = await listDeals(ctx.db, { statuses: ['published'] });
+  const [published, events] = await Promise.all([
+    listDeals(ctx.db, { statuses: ['published'] }),
+    listEvents(ctx.db),
+  ]);
   const active = published.filter((d) => dealState(d, now) !== 'ended');
   // Longest-unchecked first so a capped run rotates through the catalog.
   const last = await ctx.db
@@ -378,6 +459,43 @@ export const recheck: Job = async (ctx) => {
     (deal, error) => {
       bump(ctx.stats, 'errors');
       ctx.log(`${deal.product.name}: ${errorMessage(error)}`);
+    },
+  );
+
+  const remaining = ctx.limit === undefined ? undefined : ctx.limit - batch.length;
+  if (remaining === 0) return;
+  const seasonal = new Set(
+    events.filter((e) => e.kind === 'seasonal' && eventPhase(e, now) !== 'ended').map((e) => e.id),
+  );
+  const groups = new Map<string, DealView[]>();
+  for (const deal of published) {
+    if (!seasonal.has(deal.event.id)) continue;
+    const key = `${deal.product.id}:${deal.event.id}`;
+    const group = groups.get(key);
+    if (group) group.push(deal);
+    else groups.set(key, [deal]);
+  }
+  const endedAt = (deal: DealView) =>
+    deal.observedEndedAt ? Date.parse(deal.observedEndedAt) : endInstant(deal);
+  const renewals = [...groups.values()]
+    .filter(
+      (group) =>
+        group.some((deal) => deal.rank <= 50) &&
+        group.every((deal) => dealState(deal, now) === 'ended'),
+    )
+    .flatMap((group) => group.sort((a, b) => endedAt(b) - endedAt(a) || b.id - a.id).slice(0, 1))
+    .slice(0, remaining);
+  if (!renewals.length) return;
+  const catalog = await loadCatalog(ctx);
+  ctx.log(`${renewals.length} featured seasonal products to watch for renewals`);
+  await mapPool(
+    renewals,
+    3,
+    ctx.signal,
+    (deal) => watchRenewal(ctx, deal, catalog),
+    (deal, error) => {
+      bump(ctx.stats, 'errors');
+      ctx.log(`${deal.product.name}: renewal watch failed: ${errorMessage(error)}`);
     },
   );
 };

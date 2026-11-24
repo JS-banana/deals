@@ -1,8 +1,11 @@
 import {
   BILLING,
   CATEGORY_SLUGS,
+  calendarDay,
   type Deal,
+  type DealView,
   dealSchema,
+  dealState,
   OFFER_TYPES,
   type Product,
   productSchema,
@@ -10,7 +13,7 @@ import {
 import { type Evidence, eq, proposals } from '@deals/db';
 import { z } from 'zod';
 import { zodParse } from './llm.ts';
-import { EXTRACT_SYSTEM, extractUser } from './prompts.ts';
+import { extractSystem, extractUser } from './prompts.ts';
 import { reviewProposal } from './review-proposal.ts';
 import { type Ctx, saveSnapshot, today } from './runtime.ts';
 import { translatePayload } from './translate.ts';
@@ -25,7 +28,13 @@ import {
   type UpstreamEntry,
 } from './upstream.ts';
 import { bump, sha256 } from './util.ts';
-import { checkDates, pickEvent, stripUnverified, verifyEvidence } from './verify.ts';
+import {
+  checkDates,
+  missingMerchantEvidence,
+  pickEvent,
+  stripUnverified,
+  verifyEvidence,
+} from './verify.ts';
 
 // Offer identity is independent of the signal publisher and the current advertised price.
 export function offerKeyFor(deal: Deal, merchantPlan = '') {
@@ -143,7 +152,7 @@ export function isTrustedHost(host: string | null, trustedHosts: readonly string
   );
 }
 
-/** Merchant page + upstream line -> verified `create` proposal (never a direct write). */
+/** Merchant page + upstream line -> audited `create` proposal. */
 export async function extractCandidate(
   ctx: Ctx,
   input: {
@@ -152,9 +161,11 @@ export async function extractCandidate(
     sourceUrl?: string;
     catalog: Catalog;
     trustedHosts?: string[];
+    curated?: boolean;
+    renewal?: DealView;
   },
 ): Promise<Outcome> {
-  const { entry, sha, catalog } = input;
+  const { entry, sha, catalog, renewal } = input;
   const day = today();
   const sourceRef = input.sourceUrl ?? permalink(sha ?? 'HEAD', entry.line);
 
@@ -165,29 +176,36 @@ export async function extractCandidate(
     return skip('bad-url');
   }
 
-  const page = await ctx.fetcher.page(merchantUrl);
+  const fetched = await ctx.fetcher.page(merchantUrl);
+  const upstreamOnly =
+    input.curated &&
+    (fetched.error === 'empty-text' || fetched.status === 403 || fetched.status === 429);
+  const page = upstreamOnly ? { ...fetched, title: null, text: '' } : fetched;
   const snapshotId = await saveSnapshot(ctx, merchantUrl, page);
   if (page.error === 'empty-text') {
     bump(ctx.stats, 'emptyText');
-    return skip('empty-text');
+    if (!upstreamOnly) return skip('empty-text');
   }
-  if (page.error) {
+  if (page.error && !upstreamOnly) {
     const transient = page.status === null || page.status >= 500;
     return transient ? { status: 'retry', reason: page.error } : skip(page.error);
   }
 
-  const known = findKnown(catalog, entry, !input.sourceUrl);
+  const known = renewal
+    ? catalog.products.find((product) => product.id === renewal.product.id)
+    : findKnown(catalog, entry, !input.sourceUrl);
   const slug = known?.slug ?? (slugify(entry.name) || `app-${sha256(entry.name).slice(0, 12)}`);
   const host = hostOf(merchantUrl);
   const websiteOf = () => (isSharedHost(host) ? null : new URL(merchantUrl).origin);
 
   const extraction = await ctx.extractLlm.json({
-    system: EXTRACT_SYSTEM,
-    user: extractUser(day, entry, {
-      url: page.url,
-      title: page.title,
-      text: page.text.slice(0, LLM_TEXT_CHARS),
-    }),
+    system: extractSystem(Boolean(input.curated)),
+    user: extractUser(
+      day,
+      entry,
+      { url: page.url, title: page.title, text: page.text.slice(0, LLM_TEXT_CHARS) },
+      { curated: input.curated, renewal: Boolean(renewal) },
+    ),
     parse: (raw) => {
       const value = zodParse(extractionSchema)(raw);
       if (value.skip || !value.product || !value.deal) return { ...value, built: null };
@@ -225,13 +243,19 @@ export async function extractCandidate(
   if (!extraction.built) throw new Error('extraction produced no deal');
 
   // Deterministic checks: nothing unverifiable survives into the proposal.
+  const upstreamText = renewal ? '' : entry.raw;
   const sources = [
     { url: page.url, text: page.text },
-    { url: sourceRef, text: entry.raw },
+    { url: sourceRef, text: upstreamText },
   ];
   const sourceText = sources.map((s) => s.text).join('\n');
   const notes: string[] = [];
-  if (input.trustedHosts && !isTrustedHost(hostOf(page.url), input.trustedHosts))
+  const pageHost = hostOf(page.url);
+  if (
+    input.trustedHosts &&
+    !isTrustedHost(pageHost, input.trustedHosts) &&
+    !(input.curated && pageHost !== null && pageHost === host)
+  )
     notes.push('商家域名尚未经独立确认');
   const stripped = stripUnverified(extraction.built.deal, sourceText);
   const dates = checkDates(stripped.deal, new Date(), day);
@@ -240,26 +264,34 @@ export async function extractCandidate(
   const checked = dealSchema.safeParse(dates.deal);
   if (!checked.success) return skip('unverifiable', z.prettifyError(checked.error).slice(0, 200));
   const deal: Deal = checked.data;
+  if (renewal && dealState(deal, new Date()) === 'upcoming') return skip('upcoming');
 
   const { kept, dropped } = verifyEvidence(extraction.evidence, sources);
   if (!kept.length) return skip('no-verified-evidence');
   let confidence = extraction.confidence - 0.1 * dropped - 0.15 * notes.length;
-  if (!kept.some((e) => e.url === page.url)) confidence = Math.min(confidence, 0.6);
+  if (!input.curated && !kept.some((e) => e.url === page.url))
+    confidence = Math.min(confidence, 0.6);
   confidence = Math.round(Math.max(0.05, Math.min(1, confidence)) * 100) / 100;
   if (confidence < MIN_CONFIDENCE) return skip('low-confidence', String(confidence));
 
-  const product: Product = known ? productSchema.parse({ ...known }) : extraction.built.product;
-  const event = pickEvent(catalog.events, deal, day);
-  const eventId = catalog.events.find((e) => e.slug === event)?.id;
+  const catalogProduct = known ?? renewal?.product;
+  const product: Product = catalogProduct
+    ? productSchema.parse(catalogProduct)
+    : extraction.built.product;
+  const event = renewal?.event.slug ?? pickEvent(catalog.events, deal, day);
+  const eventId = renewal?.event.id ?? catalog.events.find((e) => e.slug === event)?.id;
   const existingOffers = known?.offers?.filter((o) => o.eventId === eventId) ?? [];
   const label = extraction.deal?.merchantPlan || '';
   const merchantPlan =
     label &&
-    page.text.normalize('NFKC').toLowerCase().includes(label.normalize('NFKC').toLowerCase())
+    (input.curated ? sourceText : page.text)
+      .normalize('NFKC')
+      .toLowerCase()
+      .includes(label.normalize('NFKC').toLowerCase())
       ? label
       : '';
   if (label && !merchantPlan) notes.push('商家未明确标识该方案');
-  const key = offerKeyFor(deal, merchantPlan);
+  let key = offerKeyFor(deal, merchantPlan);
   const matchesLegacy = (
     old: Pick<Deal, 'offerType' | 'billing' | 'code' | 'plan' | 'priceAmount'>,
   ) => {
@@ -281,19 +313,39 @@ export async function extractCandidate(
         ((old.offerType ?? 'discount') === 'discount' && deal.offerType === 'lifetime'))
     );
   };
-  if (
-    existingOffers.some((o) => o.offerKey === key || (o.offerKey === 'default' && matchesLegacy(o)))
-  )
-    return skip('existing-offer');
+  const existingOffer = existingOffers.some(
+    (o) => o.offerKey === key || (o.offerKey === 'default' && matchesLegacy(o)),
+  );
+  if (existingOffer && !renewal) return skip('existing-offer');
   const [legacy] = await ctx.db
     .select({ payload: proposals.payload })
     .from(proposals)
     .where(eq(proposals.dedupeKey, `create:${event}:${slug}`));
-  if (legacy?.payload && matchesLegacy(legacy.payload.deal)) return skip('existing-proposal');
+  const existingProposal = legacy?.payload && matchesLegacy(legacy.payload.deal);
+  if (existingOffer || existingProposal) {
+    if (!renewal) return skip('existing-proposal');
+    // A stable offer identity can recur. Require a later, merchant-quoted window before
+    // giving it a new key, since the official page may still show the expired promotion.
+    const endedAt = renewal.observedEndedAt ?? renewal.endsAt;
+    const zone = renewal.dateZone ?? undefined;
+    const endedOn = endedAt ? calendarDay(new Date(endedAt), zone) : renewal.endsOn;
+    const gaps = missingMerchantEvidence(deal, [], kept, { url: page.url, text: page.text });
+    const newWindow = (['startsAt', 'endsAt', 'startsOn', 'endsOn'] as const).some((field) => {
+      const value = deal[field];
+      if (!value || gaps.includes(field) || !endedOn) return false;
+      if (!field.endsWith('At')) return value > endedOn;
+      return endedAt
+        ? Date.parse(value) > Date.parse(endedAt)
+        : calendarDay(new Date(value), zone) > endedOn;
+    });
+    if (!newWindow) return skip('existing-offer');
+    key = `${key}-renewal-${renewal.id}`;
+    if (existingOffers.some((o) => o.offerKey === key)) return skip('existing-offer');
+  }
   deal.offerKey = key;
   const evidence: Evidence[] = kept;
   const reason = [
-    `上游榜单新条目（${entry.section}）`,
+    renewal ? `精选优惠续期复查（原优惠 #${renewal.id}）` : `上游榜单新条目（${entry.section}）`,
     `商家页 ${page.url}`,
     `证据 ${kept.length}/${kept.length + dropped} 条通过原文核对`,
     ...notes,
@@ -305,7 +357,13 @@ export async function extractCandidate(
     {
       kind: 'create',
       snapshotId,
-      auditInputs: { merchantUrl: page.url, upstreamText: entry.raw, dropped, notes },
+      auditInputs: {
+        merchantUrl: page.url,
+        upstreamText,
+        dropped,
+        notes,
+        ...(input.curated ? { sourceTrust: 'curated' as const } : {}),
+      },
       payload: { product: finished.product, event, deal: finished.deal },
       changes: [],
       evidence,

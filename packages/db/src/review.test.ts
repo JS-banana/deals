@@ -23,6 +23,7 @@ import {
 const databaseUrl = process.env.REVIEW_TEST_DATABASE_URL;
 describe.skipIf(!databaseUrl)('proposal review transactions', () => {
   const prefix = `review-test-${randomUUID()}`;
+  const otherEvent = `${prefix}-other`;
   const productSlugs: string[] = [];
   const proposalIds: number[] = [];
   let db: Db;
@@ -83,8 +84,7 @@ describe.skipIf(!databaseUrl)('proposal review transactions', () => {
     if (!row) throw new Error('proposal missing');
     return row;
   }
-  async function createDeal() {
-    const payload = candidate();
+  async function createDeal(payload = candidate()) {
     const { dealId, conflict } = await approveProposal(db, await file(payload));
     if (!dealId || conflict) throw new Error('expected a newly published fixture');
     return { dealId, payload };
@@ -108,14 +108,16 @@ describe.skipIf(!databaseUrl)('proposal review transactions', () => {
   beforeAll(async () => {
     db = createDb(databaseUrl);
     const name = { zh: '测试', en: 'Test' };
-    await db.insert(events).values({ slug: prefix, name, tagline: name });
+    await db
+      .insert(events)
+      .values([prefix, otherEvent].map((slug) => ({ slug, name, tagline: name })));
   });
   afterAll(async () => {
     try {
       if (proposalIds.length) await db.delete(proposals).where(inArray(proposals.id, proposalIds));
       if (productSlugs.length)
         await db.delete(products).where(inArray(products.slug, productSlugs));
-      await db.delete(events).where(eq(events.slug, prefix));
+      await db.delete(events).where(inArray(events.slug, [prefix, otherEvent]));
     } finally {
       await db.$client.end();
     }
@@ -194,6 +196,57 @@ describe.skipIf(!databaseUrl)('proposal review transactions', () => {
     if (!row.dealId) throw new Error('expected a published deal');
     const [published] = await db.select().from(deals).where(eq(deals.id, row.dealId));
     expect(published?.priceAmount).toBe(40);
+  });
+
+  it.each([
+    { shadow: { verified: false }, original: false, published: false },
+    { shadow: { verified: true }, original: false, published: true },
+    { shadow: {}, original: false, published: true },
+    { shadow: { verified: false }, original: true, published: true },
+  ])(
+    'publishes AI verification $published from shadow $shadow and original $original',
+    async ({ shadow, original, published }) => {
+      const payload = candidate();
+      payload.deal.verified = original;
+      const id = await file(payload, {
+        shadowDecision: { ...decision('auto_approve'), ...shadow },
+      });
+      const { dealId, conflict } = await approveProposal(db, id, undefined, undefined, 'ai');
+      expect(conflict).toBeNull();
+      if (dealId === null) throw new Error('expected a published deal');
+      const [row] = await db.select().from(deals).where(eq(deals.id, dealId));
+      expect(row?.verified).toBe(published);
+      expect(await proposal(id)).toMatchObject({
+        payload: { deal: { verified: original } },
+        approvedPayload: { deal: { verified: published } },
+      });
+    },
+  );
+
+  it('inherits the lowest published rank only for AI offers of the same product and event', async () => {
+    const payload = candidate();
+    for (const [offerKey, rank, status] of [
+      ['featured', 25, 'published'],
+      ['pinned', 0, 'published'],
+      ['hidden', -1, 'hidden'],
+    ] as const) {
+      const { dealId } = await createDeal({ ...payload, deal: { ...payload.deal, offerKey } });
+      await db.update(deals).set({ rank, status }).where(eq(deals.id, dealId));
+    }
+
+    for (const [offer, actor, rank] of [
+      [{ ...payload, deal: { ...payload.deal, offerKey: 'renewal' } }, 'ai', 0],
+      [candidate(), 'ai', 1000],
+      [{ ...payload, event: otherEvent }, 'ai', 1000],
+      [{ ...payload, deal: { ...payload.deal, offerKey: 'human' } }, 'human', 1000],
+    ] as const) {
+      const id = await file(offer, { shadowDecision: decision('auto_approve') });
+      const { dealId, conflict } = await approveProposal(db, id, undefined, undefined, actor);
+      expect(conflict).toBeNull();
+      if (dealId === null) throw new Error('expected a published deal');
+      const [row] = await db.select().from(deals).where(eq(deals.id, dealId));
+      expect(row?.rank).toBe(rank);
+    }
   });
 
   it('preserves the existing human create upsert while keeping a previously assigned logo', async () => {

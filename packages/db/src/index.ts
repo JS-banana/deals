@@ -8,7 +8,7 @@ import {
   type PublishStatus,
   productSchema,
 } from '@deals/core';
-import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, type SQL, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema.ts';
@@ -304,6 +304,7 @@ async function publishCreate(
   tx: ReviewTx,
   edited: schema.ProposalPayload,
   actor: Reviewer,
+  aiVerified = true,
 ): Promise<Publication> {
   const { product, event, deal } = edited;
   const [eventRow] = await tx
@@ -330,13 +331,30 @@ async function publishCreate(
     (productRow.name !== product.name || productRow.website !== product.website)
   )
     return { conflict: '同一 slug 的产品名称或官网已变更。' };
+  const [featured] =
+    actor === 'ai'
+      ? await tx
+          .select({ rank: deals.rank })
+          .from(deals)
+          .where(
+            and(
+              eq(deals.productId, productRow.id),
+              eq(deals.eventId, eventRow.id),
+              eq(deals.status, 'published'),
+              lt(deals.rank, 1000),
+            ),
+          )
+          .orderBy(asc(deals.rank))
+          .limit(1)
+      : [];
   const columns = dealColumns(deal);
   const insertDeal = tx.insert(deals).values({
     ...columns,
-    verified: actor === 'ai' || deal.verified,
+    verified: actor === 'ai' ? aiVerified || deal.verified : deal.verified,
     productId: productRow.id,
     eventId: eventRow.id,
     status: 'published',
+    rank: featured?.rank,
   });
   const target = [deals.productId, deals.eventId, deals.offerKey];
   const [published] = await (actor === 'human'
@@ -371,7 +389,7 @@ export async function approveProposal(
     const result =
       proposal.kind === 'update'
         ? await publishUpdate(tx, proposal, original, candidate, actor)
-        : await publishCreate(tx, candidate, actor);
+        : await publishCreate(tx, candidate, actor, proposal.shadowDecision?.verified ?? true);
     if ('conflict' in result) {
       await tx.update(proposals).set({ reviewNote: result.conflict }).where(eq(proposals.id, id));
       return { dealId: proposal.dealId, conflict: result.conflict };

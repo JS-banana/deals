@@ -9,6 +9,7 @@ export interface SourceConfig {
   target: string;
   enabled: boolean;
   quota: number;
+  curated?: boolean;
 }
 export interface Batch {
   cursor: string | null;
