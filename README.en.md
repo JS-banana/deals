@@ -13,27 +13,24 @@ Browse Black Friday, Cyber Monday, and year-round software deals. See what you p
 
 </div>
 
-![TablePro’s one-time license and Koofr’s annual plan compared side by side, with prices in the original currencies, renewal terms, eligibility, and coupon codes](docs/images/compare-en.png)
+![Deal Index homepage showing the hero search bar, single-row category and status filters, and software deal cards with prices, coupon codes, and deadlines](docs/images/home-en.png)
 
-_Deal comparison on November 22, 2026 · [View full size](docs/images/compare-en.png)_
+## Features
 
-## Choosing a deal
+- **Fast search and focused filters**: Jump straight to any app via the hero search bar or `⌘K`, and narrow listings by category, sale status, lifetime option, or existing-customer eligibility.
+- **Clear quotes and side-by-side comparison**: Prices stay in the merchant’s original currency and billing period, with one-click coupon copying. Select 2–3 deals to compare renewals and terms side by side, and inspect price history where tracked.
+- **Account-free bookmarks and community feedback**: Saved deals stay locally in your browser with no sign-in required. Visitors can vote on whether an offer still works or submit new deal tips from the footer.
+- **Bilingual and feed-ready**: Ships in Chinese (source of truth) and English, with light/dark themes and RSS feeds.
 
-- **Filter by how you buy.** Browse by category or sale status, or narrow the list to one-time purchases and offers open to existing customers. Select two or three deals to compare their terms side by side.
-- **Check the quote.** Prices keep the merchant’s currency and billing period. If the merchant publishes only a discount, that’s what the listing shows. Open a deal to see the source, the date it was checked, and any available price history.
-- **Save it for later.** Bookmark a deal and return to it under “Saved deals.” Your list stays in the current browser without an account.
+## How deals are collected and reviewed
 
-## Where the deals come from
+The worker monitors community lists, developer forums, and submitted tips daily, and revisits merchant pages for active listings. AI extracts deal terms, drafts Chinese copy, and translates listings into English, while deterministic checks verify prices, discounts, and quotes against fetched text.
 
-“Merchant verified” means the offer was visible on the merchant’s public page on the date shown. “Community-sourced” means the offer was reported in a community list and still needs confirmation on the merchant’s site.
-
-The worker checks a community list daily and revisits merchant pages for published deals. It uses AI to draft listings in Chinese, checks prices and quotes against the source text, and translates the copy into English. New listings and changes become proposals. By default, a maintainer reviews them in `/admin` before publication. [Upstream community list](https://github.com/trungdq88/Awesome-Black-Friday-Cyber-Monday) · [Collection and translation guide (in Chinese)](docs/pipeline.md)
-
-To report a price change, flag a broken link, or suggest a deal, include the merchant’s URL and the terms to check. [Open an issue](https://github.com/JS-banana/deals/issues)
+All new listings and updates enter a proposal queue reviewed in `/admin` before publication, recording price observations over time. [Collection and translation guide (in Chinese)](docs/pipeline.md) · [Report an issue](https://github.com/JS-banana/deals/issues)
 
 ## Run locally
 
-Use Node.js 22.18 or later, pnpm 12.21.0, and Docker with Compose. From the root of a fresh clone, run the following commands to browse the included Black Friday and Cyber Monday deals.
+Use Node.js 22.18 or later, pnpm 12.21.0, and Docker with Compose. From the root of a fresh clone, run these commands to preview the catalog with the bundled sample data:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -44,20 +41,25 @@ pnpm db:seed
 SITE_URL=http://localhost:3000 pnpm dev
 ```
 
-Open the [local English site](http://localhost:3000/en) to see the listings. To sign in to the [review console](http://localhost:3000/admin), use `ADMIN_USER` and `ADMIN_PASSWORD` from the root `.env`.
+Open the [local English site](http://localhost:3000/en) to browse listings, or sign in to the [review console](http://localhost:3000/admin) using `ADMIN_USER` and `ADMIN_PASSWORD` from the root `.env`.
 
-The local preview runs PostgreSQL and the web app. Compose checks for a worker API key when it reads the configuration, so the database startup command supplies `unused` for that invocation. Set valid `LLM_*` values in `.env` before running collection or translation jobs.
+The local preview runs PostgreSQL and the web app. Compose checks for a worker API key when parsing the configuration, so `unused` satisfies that check during database startup. Set valid `LLM_*` values in `.env` before running collection or translation jobs.
 
-## Self-hosting and development
+## Self-hosting and project layout
 
-Set the public `SITE_URL`, database password (`POSTGRES_PASSWORD`), admin credentials, and worker model settings in your production `.env`, then start the services with Docker Compose.
+Set `SITE_URL`, `POSTGRES_PASSWORD`, admin credentials, and worker model settings in your production `.env`, then build and start the stack with Docker Compose:
 
 ```sh
 docker compose up -d --build
 ```
 
-Compose runs database migrations before starting the web app and scheduled worker. The web app listens on `127.0.0.1:3100` by default for use behind a reverse proxy. To load the bundled catalog on first deployment, run `docker compose run --rm migrate node packages/db/src/seed.ts`.
+Compose applies pending migrations before starting the web container (listening on `127.0.0.1:3100` for reverse proxying) and scheduled worker. To seed the bundled catalog on first deployment, run `docker compose run --rm migrate node packages/db/src/seed.ts`.
 
-- [Environment settings](.env.example) · [Compose configuration](compose.yaml) · [Nginx, deployment, and backup scripts](deploy/)
-- [Web app and review console](apps/web/) · [Worker](apps/worker/) · [Domain model](packages/core/) · [Database and migrations](packages/db/)
-- [Contribution guide and pre-commit checks (in Chinese)](CONTRIBUTING.md)
+| Package                         | Responsibility                                                                    |
+| :------------------------------ | :-------------------------------------------------------------------------------- |
+| [apps/web](apps/web/)           | Next.js catalog, bilingual zh/en routes, RSS feeds, and `/admin` review console   |
+| [apps/worker](apps/worker/)     | Multi-source ingestion, AI extraction/checks, translation pipeline, and logo sync |
+| [packages/core](packages/core/) | Domain schemas, Zod validation, status/timezone logic, and money formatting       |
+| [packages/db](packages/db/)     | Drizzle ORM schema, SQL migrations, and proposal approval transactions            |
+
+More references: [Environment settings](.env.example) · [Compose configuration](compose.yaml) · [Nginx, deployment, and backup scripts](deploy/) · [Contribution guide (in Chinese)](CONTRIBUTING.md)

@@ -13,27 +13,24 @@
 
 </div>
 
-![TablePro 买断与 Koofr 年付方案并排对比，列出原币价格、续费条件、适用对象和优惠码](docs/images/compare-zh.png)
+![好价清单首页：展示顶部搜索框、分类与状态筛选栏以及带价格、优惠码和倒计时的软件优惠卡片](docs/images/home-zh.png)
 
-_2026 年 11 月 22 日的优惠对比 · [查看大图](docs/images/compare-zh.png)_
+## 功能亮点
 
-## 怎么挑优惠
+- **快速检索与精准筛选**：通过首页搜索框或 `⌘K` 全站搜索直达目标软件，支持按分类、活动状态、是否可买断及老用户资格一键筛选。
+- **报价透明可对比**：保留商家原币种与计费周期，优惠码一键复制；选中 2–3 款优惠即可并排对比续费、适用对象与条款，有跟踪记录时可查看历史价格曲线。
+- **无登录收藏与众包纠错**：收藏记录保存在当前浏览器本地，无需账号；详情页支持有效性投票，页脚支持直接提交新优惠线索。
+- **双语与订阅支持**：内置中文（源稿）与英文站点，支持浅色 / 深色主题切换及 RSS 订阅。
 
-- **按购买条件筛选。** 可以按软件分类和活动状态浏览，也可以直接筛选「可买断」或「老用户可用」。选两到三款加入对比，就能像上图一样逐项查看条款。
-- **核对报价。** 价格按商家原币种和计费周期展示。商家只公布折扣时，页面就显示折扣。详情页附核对日期和来源链接，有价格记录时也能查看历史变化。
-- **留到以后再看。** 点优惠卡片上的书签，之后从「我的收藏」找回来。收藏只保存在当前浏览器，无需账号。
+## 数据采集与审核
 
-## 优惠从哪里来
+Worker 每天定时抓取多渠道社区清单、社区帖与公开线索，并定期复查已收录优惠的商家页面。AI 负责提取条款、撰写中文摘要并翻译为英文，程序再对价格、折扣和引文做确定性核验。
 
-「商家已核实」表示核对当天能在商家公开页面确认该活动。「社区收录」表示线索来自社区清单，仍待商家页面佐证。
-
-Worker 每天从社区清单发现新优惠，并定期复查已收录的商家页面。AI 提取条款、生成中文文案并翻译成英文，程序对照原文核验报价和引文。新增和变更会生成提案，默认由维护者在 `/admin` 审核后发布。[上游社区清单](https://github.com/trungdq88/Awesome-Black-Friday-Cyber-Monday) · [采集与翻译流程](docs/pipeline.md)
-
-发现价格有变、链接失效，或想推荐优惠，可以在 Issue 里附上商家页面和需要核对的条款。[反馈与推荐](https://github.com/JS-banana/deals/issues)
+所有新增与变更都会先进入提案队列，默认由维护者在 `/admin` 审核通过后发布，并保留价格观测记录。[采集与翻译流程](docs/pipeline.md) · [反馈与纠错](https://github.com/JS-banana/deals/issues)
 
 ## 本地运行
 
-需要 Node.js 22.18 或更高版本、pnpm 12.21.0，以及带 Compose 的 Docker。在新克隆的仓库根目录运行以下命令，即可用仓库自带的黑五网一数据浏览目录。
+需要 Node.js 22.18 或更高版本、pnpm 12.21.0，以及带 Compose 的 Docker。在仓库根目录运行以下命令，即可用内置示例数据预览站点：
 
 ```sh
 pnpm install --frozen-lockfile
@@ -44,20 +41,25 @@ pnpm db:seed
 SITE_URL=http://localhost:3000 pnpm dev
 ```
 
-打开 [本地首页](http://localhost:3000) 即可看到优惠。进入 [审核后台](http://localhost:3000/admin) 时，使用根目录 `.env` 中的 `ADMIN_USER` 和 `ADMIN_PASSWORD` 登录。
+打开 [本地首页](http://localhost:3000) 即可浏览优惠；访问 [审核后台](http://localhost:3000/admin) 时使用 `.env` 中的 `ADMIN_USER` 与 `ADMIN_PASSWORD` 登录。
 
-本地预览只启动 PostgreSQL 和 Web。Compose 解析配置时会检查 Worker 的密钥，所以上面的 `unused` 仅供启动数据库时使用。运行采集或翻译任务前，再在 `.env` 中填写有效的 `LLM_*` 配置。
+本地预览仅启动 PostgreSQL 与 Web。Compose 解析配置时会校验 Worker 密钥，因此数据库启动命令传入 `unused` 占位；若需运行采集或翻译任务，请先在 `.env` 中配置有效的 `LLM_*` 参数。
 
-## 自托管与开发
+## 自托管与项目结构
 
-在生产环境的 `.env` 中设置站点地址 `SITE_URL`、数据库密码 `POSTGRES_PASSWORD`、后台凭据和 Worker 的模型配置，然后用 Docker Compose 启动服务。
+在生产环境的 `.env` 中配置 `SITE_URL`、`POSTGRES_PASSWORD`、后台凭据及模型密钥后，通过 Docker Compose 一键构建启动：
 
 ```sh
 docker compose up -d --build
 ```
 
-Compose 会先执行数据库迁移，再启动 Web 和定时 Worker。Web 默认监听 `127.0.0.1:3100`，供反向代理转发。首次部署若要导入内置清单，运行 `docker compose run --rm migrate node packages/db/src/seed.ts`。
+Compose 会先执行数据库迁移，再启动 Web（默认监听 `127.0.0.1:3100` 供反向代理转发）与定时 Worker。首次部署若需导入内置数据，可执行 `docker compose run --rm migrate node packages/db/src/seed.ts`。
 
-- [环境变量示例](.env.example) · [Compose 配置](compose.yaml) · [Nginx、自动部署与备份脚本](deploy/)
-- [Web 前台与审核后台](apps/web/) · [采集 Worker](apps/worker/) · [领域模型](packages/core/) · [数据库与迁移](packages/db/)
-- [贡献指南与提交前检查](CONTRIBUTING.md)
+| 目录                            | 职责                                                     |
+| :------------------------------ | :------------------------------------------------------- |
+| [apps/web](apps/web/)           | Next.js 前台展示、中英双语站点、RSS 与 `/admin` 审核后台 |
+| [apps/worker](apps/worker/)     | 多源抓取、AI 提取核验、翻译流水线、图标同步与定时调度    |
+| [packages/core](packages/core/) | 领域模型、Zod 校验、状态/时区计算与价格格式化（纯函数）  |
+| [packages/db](packages/db/)     | Drizzle ORM Schema、数据库迁移与审核发布事务             |
+
+更多配置：[环境变量示例](.env.example) · [Compose 配置](compose.yaml) · [Nginx、部署与备份脚本](deploy/) · [贡献指南与提交前检查](CONTRIBUTING.md)
