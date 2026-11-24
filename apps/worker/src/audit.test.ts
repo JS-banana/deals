@@ -324,30 +324,155 @@ describe('curated approvals', () => {
     ['endsOn', 'Ends December 1, 2025'],
     ['code', 'Use code Save20'],
   ])(
-    'holds contradictory %s evidence even when the curated drop rate is acceptable',
+    'flags contradictory %s evidence in missingMerchantEvidence and holds non-curated verification',
     (field, quote) => {
-      for (const url of [upstream, merchant]) {
-        const claims = curatedRow.evidence.map((e) =>
-          e.field === field ? { field, quote, url } : e,
-        );
-        const item = {
-          ...curatedRow,
-          evidence: claims,
-          auditInputs: {
-            ...curatedRow.auditInputs,
-            dropped: 1,
-            upstreamText: claims
-              .filter((e) => e.url === upstream)
-              .map((e) => e.quote)
-              .join('\n'),
-          },
-        };
-        expect(decide(audit, item, url === merchant ? quote : merchantText).action).toBe(
-          'manual_review',
-        );
-      }
+      const claims = evidence.map((e) => (e.field === field ? { field, quote, url: merchant } : e));
+      const text = claims.map((e) => e.quote).join('\n');
+      const item = { ...candidate, evidence: claims };
+      expect(merchantGaps(item, text)).toContain(field);
+      expect(decide(audit, item, text).action).toBe('manual_review');
     },
   );
+
+  it('supports dual-currency quotes, weekday dates, multi-price renewals, usually, and Spanish Tier 2 dates', () => {
+    const dualCurrency = {
+      ...candidate,
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, priceAmount: 22.99, originalAmount: 39 },
+      },
+      evidence: [
+        {
+          field: 'priceAmount',
+          quote: 'Pro lifetime costs $22.99 / 22,99 € instead of $39 / 39 €',
+          url: merchant,
+        },
+        {
+          field: 'originalAmount',
+          quote: 'Pro lifetime costs $22.99 / 22,99 € instead of $39 / 39 €',
+          url: merchant,
+        },
+      ],
+    };
+    const dualText = dualCurrency.evidence[0]?.quote ?? '';
+    expect(merchantGaps(dualCurrency, dualText)).not.toEqual(
+      expect.arrayContaining(['priceAmount', 'originalAmount']),
+    );
+    const cadItem = {
+      ...candidate,
+      evidence: evidence.map((e) =>
+        e.field === 'priceAmount' ? { field: 'priceAmount', quote: 'CAD $19', url: merchant } : e,
+      ),
+    };
+    expect(merchantGaps(cadItem, cadItem.evidence.map((e) => e.quote).join('\n'))).toContain(
+      'priceAmount',
+    );
+
+    const weekday = {
+      ...candidate,
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, startsOn: '2026-11-09', endsOn: '2026-12-03' },
+      },
+      evidence: [
+        {
+          field: 'startsOn',
+          quote: 'From Mon Nov 9, 2026 at midnight to Tue Dec 1, 2026',
+          url: merchant,
+        },
+        {
+          field: 'endsOn',
+          quote: 'ends Thursday, Dec 3, 11:59 pm PT',
+          url: merchant,
+        },
+      ],
+    };
+    expect(merchantGaps(weekday, weekday.evidence.map((e) => e.quote).join('\n'))).not.toEqual(
+      expect.arrayContaining(['startsOn', 'endsOn']),
+    );
+    const foundedWeekday = {
+      ...candidate,
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, endsOn: '2026-12-03' },
+      },
+      evidence: [{ field: 'endsOn', quote: 'Founded Thursday, Dec 3, 2026', url: merchant }],
+    };
+    expect(merchantGaps(foundedWeekday, 'Founded Thursday, Dec 3, 2026')).toContain('endsOn');
+
+    for (const quote of [
+      'Yearly $19.99 → $9.99, then $19.99/yr.',
+      '**33% OFF** the first year: ~~$29.99~~ **$19.99**, then $29.99/year.',
+    ]) {
+      const isArrow = quote.includes('→');
+      const sale = isArrow ? 9.99 : 19.99;
+      const orig = isArrow ? 19.99 : 29.99;
+      const renewalItem = {
+        ...candidate,
+        payload: {
+          ...candidate.payload,
+          deal: { ...candidate.payload.deal, priceAmount: sale, originalAmount: orig },
+        },
+        evidence: [
+          { field: 'priceAmount', quote, url: merchant },
+          { field: 'originalAmount', quote, url: merchant },
+        ],
+      };
+      expect(merchantGaps(renewalItem, quote)).not.toEqual(
+        expect.arrayContaining(['priceAmount', 'originalAmount']),
+      );
+    }
+
+    const regularLicense = {
+      ...candidate,
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, priceAmount: 150, originalAmount: 250 },
+      },
+      evidence: [
+        {
+          field: 'originalAmount',
+          quote: 'the Broadcast Regular License is $150 instead of $250',
+          url: merchant,
+        },
+      ],
+    };
+    expect(
+      merchantGaps(regularLicense, 'the Broadcast Regular License is $150 instead of $250'),
+    ).not.toContain('originalAmount');
+
+    const usually = {
+      ...candidate,
+      payload: {
+        ...candidate.payload,
+        deal: { ...candidate.payload.deal, priceAmount: 67.5, originalAmount: 90 },
+      },
+      evidence: [{ field: 'originalAmount', quote: '$67.50 usually $90/year', url: merchant }],
+    };
+    expect(merchantGaps(usually, '$67.50 usually $90/year')).not.toContain('originalAmount');
+
+    const spanishCurated = {
+      ...curatedRow,
+      evidence: [
+        ...curatedRow.evidence.filter((e) => e.field !== 'endsOn'),
+        { field: 'endsOn', quote: 'Hasta el 30 de noviembre', url: merchant },
+      ],
+      payload: {
+        ...curatedRow.payload,
+        deal: { ...curatedRow.payload.deal, endsOn: '2026-11-30' },
+      },
+      auditInputs: {
+        ...curatedRow.auditInputs,
+        dropped: 1,
+        upstreamText: `${curatedRow.auditInputs.upstreamText}\nUntil Nov 30, 2026`,
+      },
+    };
+    expect(decide(audit, spanishCurated, 'Hasta el 30 de noviembre')).toMatchObject({
+      action: 'auto_approve',
+      verified: false,
+      issues: [],
+    });
+  });
 
   it('keeps an unlabelled currency-qualified price on a curated list eligible', () => {
     const claims = curatedRow.evidence.map((e) =>

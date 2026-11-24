@@ -16,7 +16,6 @@ import {
   missingMerchantEvidence,
   statesOfferEnded,
   stripUnverified,
-  supportsCuratedGaps,
   verifyEvidence,
 } from './verify.ts';
 
@@ -120,8 +119,7 @@ export function decideProposal(
       (curatedCreate &&
         quotes.kept.length &&
         !stripUnverified(deal, [pageText, upstreamText].join('\n')).notes.length &&
-        hasBenefitEvidence(deal, quotes.kept) &&
-        supportsCuratedGaps(deal, gaps, quotes.kept, merchant, upstreamText))
+        hasBenefitEvidence(deal, quotes.kept))
     ) {
       return {
         action: 'auto_approve',
