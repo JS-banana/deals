@@ -39,7 +39,7 @@ GENERAL
 - Do not output URLs, ids, slugs or review flags; the pipeline fills those in.`;
 
 const STYLE_GUIDE = `文案风格（只写简体中文；英文由独立的翻译流程生成，不要输出英文版本）
-- product.summary.zh：严格不超过 30 个字符（含中文、英文与标点），只说产品做什么，不写价格、不用夸张词（如“超值”“强大”“必备”）。
+- product.summary.zh：尽量控制在 30 个字符以内（最多不超过 60 个字符），只说产品做什么，不写价格、不用夸张词（如“超值”“强大”“必备”）。
 - plan.zh：版本 · 计费 · 席位，例如“Pro 买断 · 3 台设备”“Solo 年付 · 首年”“终身授权 · 含 3 年更新”。
 - terms.zh：哪些方案或地区可用、优惠码如何生效、设备数量、哪些方案不参加。陈述事实，不用“限时”“抢购”等促销口吻。
 - renewal.zh / eligibility.zh：仅在来源明确说明时填写，否则为 null。
@@ -141,12 +141,13 @@ Check the same plan and offer, currency, amount, billing period, eligibility, re
 Check every changed field. observedEndedAt is a time of observation: approve it only when the merchant
 explicitly says this specific offer has ended.
 By default, UPSTREAM alone cannot establish a merchant fact. Only software is relevant.
-When the top-level sourceTrust field is "curated", courses, ebooks, templates and design assets are also relevant. Do not penalize relevance or reject them merely for being non-software. Facts supported by verbatim quotes from the curated UPSTREAM row can be approved when PAGE omits them and does not state that the offer has ended. The pipeline labels such approvals as community-sourced when merchant evidence is incomplete. Send unsupported claims, PAGE contradictions, ended offers and broken or mismatched prices to review or reject. A concise, factual product.summary.zh of 31–45 characters is acceptable for curated proposals despite the default copy limit. Flag hype, inaccuracies and excessive length.
+When the top-level sourceTrust field is "curated", courses, ebooks, templates and design assets are also relevant. Do not penalize relevance or reject them merely for being non-software. Facts supported by verbatim quotes from the curated UPSTREAM row can be approved when PAGE omits them and does not state that the offer has ended; do NOT add an issue merely because PAGE omits fields that are verbatim-supported by the curated UPSTREAM row, as the pipeline handles the community-sourced tier automatically. Send unsupported claims, PAGE contradictions, ended offers and broken or mismatched prices to review or reject.
+A concise, objective product.summary.zh up to 60 characters is acceptable; do not add an issue solely for being 31–60 characters. Flag hype, pricing in summary, inaccuracies, or summaries over 60 characters. On update proposals (non-empty changes), do not block on unchanged product metadata.
 Review Chinese copy for objective wording. Do not rewrite the proposal.
 Boolean flags (noCode, oneTime, existingUsers) default to false when unstated; do not flag false as an unsupported negative claim unless the source contradicts it.
 The "today" field is the Asia/Shanghai calendar date of this check; checkedOn and observedLiveOn equal to "today" are current, not future dates.
 Return one JSON object matching {verdict:"approve"|"review"|"reject",score:0..100,dims:{accuracy:0..100,billingAndTerms:0..100,relevance:0..100,copyQuality:0..100},issues:string[],summary:string}, no prose.
-Use Chinese for summary and issues. Approve only if no factual error or unresolved issue remains.
+Use Chinese for summary and issues. Approve only if no factual error or unresolved issue remains, and leave issues empty whenever verdict is "approve".
 Reject for clear factual invalidity or out-of-scope content; missing evidence goes to review.
 ${STYLE_GUIDE}`;
 
