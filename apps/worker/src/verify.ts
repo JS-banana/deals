@@ -414,6 +414,15 @@ function supports(field: string, deal: Deal, quote: string) {
   }
 }
 
+/** Check benefit wording and stated value against quotes already matched to the sources. */
+export function hasBenefitEvidence(deal: Deal, evidence: Evidence[]): boolean {
+  return (['benefitSummary', 'estimatedValue'] as const).every(
+    (field) =>
+      deal[field] == null ||
+      evidence.some((e) => e.field === field && supports(field, deal, fold(e.quote))),
+  );
+}
+
 /** Verify each claim against the exact merchant snapshot, even when replaying stored evidence. */
 export function missingMerchantEvidence(
   deal: Deal,

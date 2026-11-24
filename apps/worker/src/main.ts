@@ -5,6 +5,7 @@ import { logos } from './logos.ts';
 import { digest, notifyOffers } from './notify.ts';
 import { prune } from './prune.ts';
 import { recheck } from './recheck.ts';
+import { reviewPending } from './review-pending.ts';
 import { createRuntime, type Job, type JobOptions, log, type Runtime, runJob } from './runtime.ts';
 import { syncSources } from './sources/sync.ts';
 import { translate, translateEval } from './translate.ts';
@@ -13,6 +14,7 @@ const JOBS: Record<string, Job> = {
   translate,
   'translate-eval': translateEval,
   'audit-eval': auditEval,
+  'review-pending': reviewPending,
   logos,
   'sync-upstream': syncSources('upstream'),
   'sync-fast': syncSources('fast'),
@@ -24,7 +26,7 @@ const JOBS: Record<string, Job> = {
   'notify-offers': notifyOffers,
 };
 
-const USAGE = `usage: node src/main.ts <translate|translate-eval|audit-eval|logos|sync-upstream|sync-fast|sync-slow|recheck|indexnow|prune|digest|notify-offers|daily|schedule> [--limit N] [--dry-run]
+const USAGE = `usage: node src/main.ts <translate|translate-eval|audit-eval|review-pending|logos|sync-upstream|sync-fast|sync-slow|recheck|indexnow|prune|digest|notify-offers|daily|schedule> [--limit N] [--dry-run]
   translate [--limit N] [--refresh] [--dry-run]
   translate-eval | audit-eval [--sample N]`;
 

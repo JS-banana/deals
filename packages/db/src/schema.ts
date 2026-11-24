@@ -154,10 +154,12 @@ export interface AuditInputs {
   upstreamText: string;
   dropped: number;
   notes: string[];
+  sourceTrust?: 'curated';
 }
 
 export interface ShadowDecision {
   action: 'auto_approve' | 'auto_reject' | 'manual_review';
+  verified?: boolean;
   score: number | null;
   summary: string;
   issues: string[];

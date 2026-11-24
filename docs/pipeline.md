@@ -10,8 +10,9 @@ Worker 负责从已启用的来源收集线索，再向商家页核验报价、�
 
 | 任务             | 作用                                                                                                                     |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `sync-upstream`  | 从社区清单同步新条目，抓取商家页，用 AI 提取结构化字段和中文文案，翻译英文，校验后提交审核                               |
-| `recheck`        | 复查商家页，记录价格历史，提交字段更新、结束观测或待人工确认的异常提案                                                   |
+| `sync-upstream`  | 直接从精选 GitHub 黑五清单抽取、翻译并提交提案，覆盖软件和非软件数字商品                                                 |
+| `recheck`        | 复查商家页、记录价格和结束观测，并跟进未结束季节活动中的精选产品续期                                                     |
+| `review-pending` | 按 ID 重审待审新增及更新提案，更新拟判，并按自动审批开关执行（支持 `--limit N`、`--dry-run`）                            |
 | `audit-eval`     | 对有人工结论的原始提案及其商家快照只读回放，输出拟发布错单率、拟拒绝误杀率和可回放数（`--sample N`，默认 15）            |
 | `translate`      | 为缺英文或中文已变化的字段生成英文（支持 `--limit N`、`--refresh`、`--dry-run`）                                         |
 | `translate-eval` | 抽样评估翻译质量，不写库（支持 `--sample N`，默认 15）                                                                   |
@@ -34,11 +35,18 @@ pnpm db:migrate
 SOURCE_JETBRAINS_ENABLED=true pnpm worker sync-slow --dry-run --limit 5
 SOURCE_JETBRAINS_ENABLED=true pnpm worker sync-slow --limit 5
 pnpm worker sync-fast --dry-run --limit 5
+pnpm worker review-pending --dry-run --limit 5
 pnpm worker audit-eval --sample 15
 pnpm worker prune --dry-run
 ```
 
-`--limit` 为每个来源单次进入初筛的条数。原始线索会先保存，超过配额的留给下次。模型批次出错会留待重试，单条提取连续失败三次后停止尝试。运营人员可在 `raw_signals` 核查来源、内容及尝试次数，修复根因后将相应行的 `attempts` 归零。三个自动执行开关默认关闭，正常同步即可积累影子判定。线上质量以有人工结论的回放样本为准。
+在同步命令中，`--limit` 覆盖每个来源的单次处理配额。原始线索会先保存，超过配额的留给下次。模型批次出错会留待重试，单条提取连续失败三次后停止尝试。运营人员可在 `raw_signals` 核查来源、内容及尝试次数，修复根因后将相应行的 `attempts` 归零。三个自动执行开关默认关闭，正常同步即可积累影子判定。线上质量以有人工结论的回放样本为准。
+
+主 GitHub 黑五清单 `github-bfcm` 配置为 `curated: true`，默认配额 50，跳过模型初筛，覆盖课程、电子书、模板、设计素材和软件。商家页证据齐全的自动发布写入 `verified: true`。新增提案也可使用精选清单逐字引文补充商家页遗漏的报价，遇到 403、429 或 JavaScript 空页也可提案，审核和确定性核验通过后发布为 `verified: false`。商家页明确结束或与清单事实矛盾时须拦下。普通社区来源仍要求商家证据才能自动发布。
+
+`review-pending` 优先复用原商家快照正文，缺失时取 URL 最新的非空正文。旧的主 GitHub 清单新增提案会补齐精选标记，并撤销旧的商家域名确认扣分。`--dry-run` 只输出拟判。
+
+`recheck` 先复查常规报价，再用 `--limit` 的剩余额度跟进未结束季节活动中已发布报价全部结束的精选产品（`rank <= 50`）。复查最近结束的一笔对应的官方页，续期以原活动的新增提案提交。AI 新报价沿用同产品同活动中小于 1000 的最低排名。统计见 `renewalChecked` 和 `renewalProposals`。
 
 投票与爆料需要配置随机的 `COMMUNITY_HASH_SECRET`，并由可信反向代理覆盖 `X-Real-IP`。同一身份每小时可提交五条新线索。异常摘要的格式由 `NOTIFY_WEBHOOK_KIND` 指定；用户群通过 `GROUP_WEBHOOK_{SLACK,DISCORD,FEISHU,WECOM,DINGTALK}_URL` 独立配置。首次发送选取过去一天的合格发布，后续从上次成功的发布位置恢复。发送成功但进程在记录进度前退出时，接收方可能看到重复通知。
 

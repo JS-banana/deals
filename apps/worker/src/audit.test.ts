@@ -6,6 +6,7 @@ import {
   AUDIT_SYSTEM,
   auditUser,
   EXTRACT_SYSTEM,
+  extractSystem,
   RECHECK_SYSTEM,
   reviewSystem,
   reviseSystem,
@@ -228,6 +229,93 @@ describe('shadow decisions and execution', () => {
   });
 });
 
+describe('curated approvals', () => {
+  const curated: AuditCandidate = {
+    ...candidate,
+    auditInputs: { ...candidate.auditInputs, sourceTrust: 'curated' },
+  };
+  const curatedRow: AuditCandidate = {
+    ...curated,
+    auditInputs: { ...curated.auditInputs, upstreamText: page },
+    evidence: evidence.map((quote) => ({ ...quote, url: upstream })),
+  };
+  const merchantText = 'Explore the Pro plan.';
+
+  it('approves verbatim curated-list facts with the community-sourced tier', () => {
+    expect(decide(audit, curatedRow, merchantText)).toMatchObject({
+      action: 'auto_approve',
+      verified: false,
+      issues: [],
+    });
+  });
+
+  it('prefers the merchant-verified tier when all fields have merchant evidence', () => {
+    expect(decide(audit, curated)).toMatchObject({ action: 'auto_approve', verified: true });
+  });
+
+  it('requires merchant evidence for ordinary community sources and curated updates', () => {
+    const { upstreamText } = curatedRow.auditInputs;
+    expect(
+      decide(
+        audit,
+        { ...curatedRow, auditInputs: { ...candidate.auditInputs, upstreamText } },
+        merchantText,
+      ).action,
+    ).toBe('manual_review');
+    expect(
+      decide(
+        audit,
+        { ...curatedRow, changes: [{ field: 'priceAmount', before: 25, after: 19 }] },
+        merchantText,
+      ).action,
+    ).toBe('manual_review');
+  });
+
+  it('holds curated approvals with an ended page, dropped or missing quotes, or unsupported amounts and benefits', () => {
+    expect(decide(audit, curatedRow, `${merchantText}\nThis offer has ended.`).action).toBe(
+      'manual_review',
+    );
+    expect(decide(audit, curated, `${page}\nThis offer has ended.`).action).toBe('manual_review');
+    for (const item of [
+      { ...curatedRow, auditInputs: { ...curatedRow.auditInputs, dropped: 1 } },
+      { ...curatedRow, evidence: [] },
+      {
+        ...curatedRow,
+        evidence: [
+          ...curatedRow.evidence,
+          { field: 'billing', url: upstream, quote: 'Charged yearly' },
+        ],
+      },
+      {
+        ...curatedRow,
+        payload: { ...curatedRow.payload, deal: { ...curatedRow.payload.deal, priceAmount: 13 } },
+      },
+      {
+        ...curatedRow,
+        payload: {
+          ...curatedRow.payload,
+          deal: {
+            ...curatedRow.payload.deal,
+            offerType: 'bundle' as const,
+            benefitSummary: { zh: '含 30 天试用', en: '' },
+          },
+        },
+      },
+    ]) {
+      expect(decide(audit, item, merchantText).action).toBe('manual_review');
+    }
+  });
+
+  it('allows a clean curated rejection based on an explicit low-scoring reject verdict', () => {
+    expect(
+      decide({ ...audit, verdict: 'reject', score: 59 }, curatedRow, merchantText).action,
+    ).toBe('auto_reject');
+    expect(
+      decide({ ...audit, dims: { ...audit.dims, relevance: 49 } }, curatedRow, merchantText).action,
+    ).toBe('auto_approve');
+  });
+});
+
 it('measures edited approvals, rejected good offers and abstentions with separate denominators', () => {
   expect(
     replayMetrics([
@@ -248,6 +336,7 @@ it('measures edited approvals, rejected good offers and abstentions with separat
 it('includes JSON in every json_object system prompt and documents default-false flags in audit', () => {
   for (const prompt of [
     EXTRACT_SYSTEM,
+    extractSystem(true),
     RECHECK_SYSTEM,
     AUDIT_SYSTEM,
     translateSystem(''),
@@ -263,6 +352,21 @@ it('includes JSON in every json_object system prompt and documents default-false
     auditUser(candidate.payload, [], evidence, { url: merchant, text: page }, '', '2026-11-24'),
   );
   expect(userMsg.today).toBe('2026-11-24 (Asia/Shanghai)');
+  expect(userMsg).not.toHaveProperty('sourceTrust');
+  expect(
+    JSON.parse(
+      auditUser(
+        candidate.payload,
+        [],
+        evidence,
+        { url: merchant, text: page },
+        '',
+        '2026-11-24',
+        'curated',
+      ),
+    ).sourceTrust,
+  ).toBe('curated');
+  expect(extractSystem(false)).toBe(EXTRACT_SYSTEM);
 });
 
 describe('refined merchant quote matchers', () => {
