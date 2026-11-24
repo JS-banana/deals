@@ -348,6 +348,8 @@ it('includes JSON in every json_object system prompt and documents default-false
   expect(AUDIT_SYSTEM).toContain('noCode, oneTime, existingUsers');
   expect(AUDIT_SYSTEM).toContain('default to false when unstated');
   expect(AUDIT_SYSTEM).toContain('The "today" field');
+  expect(AUDIT_SYSTEM).toContain('up to 60 characters');
+  expect(AUDIT_SYSTEM).toContain('leave issues empty whenever verdict is "approve"');
   const userMsg = JSON.parse(
     auditUser(candidate.payload, [], evidence, { url: merchant, text: page }, '', '2026-11-24'),
   );
