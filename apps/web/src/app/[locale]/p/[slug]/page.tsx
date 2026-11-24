@@ -153,37 +153,34 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
           </ul>
         </section>
       )}
-      <JsonLd
-        data={{
-          '@context': 'https://schema.org',
-          '@type': 'Product',
-          name: product.name,
-          description: pick(product.summary, locale),
-          category: categoryName(product.category, locale),
-          url: pageUrl(
-            offer === undefined ? `/p/${product.slug}` : dealHref(slug, deal.id),
-            locale,
-          ),
-          ...(logo ? { image: siteUrl(logo) } : {}),
-          ...(deal.priceAmount !== null && deal.currency
-            ? {
-                offers: {
-                  '@type': 'Offer',
-                  price: deal.priceAmount,
-                  priceCurrency: deal.currency,
-                  ...(validUntil ? { priceValidUntil: validUntil } : {}),
-                  availability:
-                    state === 'ended'
-                      ? 'https://schema.org/OutOfStock'
-                      : state === 'upcoming'
-                        ? 'https://schema.org/PreOrder'
-                        : 'https://schema.org/InStock',
-                  url: deal.merchantUrl,
-                },
-              }
-            : {}),
-        }}
-      />
+      {deal.priceAmount !== null && deal.currency && (
+        <JsonLd
+          data={{
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: product.name,
+            description: pick(product.summary, locale),
+            url: pageUrl(
+              offer === undefined ? `/p/${product.slug}` : dealHref(slug, deal.id),
+              locale,
+            ),
+            ...(logo ? { image: siteUrl(logo) } : {}),
+            offers: {
+              '@type': 'Offer',
+              price: deal.priceAmount,
+              priceCurrency: deal.currency,
+              ...(validUntil ? { priceValidUntil: validUntil } : {}),
+              availability:
+                state === 'ended'
+                  ? 'https://schema.org/OutOfStock'
+                  : state === 'upcoming'
+                    ? 'https://schema.org/PreOrder'
+                    : 'https://schema.org/InStock',
+              url: deal.merchantUrl,
+            },
+          }}
+        />
+      )}
     </div>
   );
 }
