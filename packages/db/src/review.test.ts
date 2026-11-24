@@ -16,6 +16,7 @@ import {
   proposals,
   rejectProposal,
   type ShadowDecision,
+  sql,
   withAdvisoryLock,
 } from './index.ts';
 
@@ -114,10 +115,14 @@ describe.skipIf(!databaseUrl)('proposal review transactions', () => {
   });
   afterAll(async () => {
     try {
-      if (proposalIds.length) await db.delete(proposals).where(inArray(proposals.id, proposalIds));
-      if (productSlugs.length)
-        await db.delete(products).where(inArray(products.slug, productSlugs));
-      await db.delete(events).where(inArray(events.slug, [prefix, otherEvent]));
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(918273)`);
+        if (proposalIds.length)
+          await tx.delete(proposals).where(inArray(proposals.id, proposalIds));
+        if (productSlugs.length)
+          await tx.delete(products).where(inArray(products.slug, productSlugs));
+        await tx.delete(events).where(inArray(events.slug, [prefix, otherEvent]));
+      });
     } finally {
       await db.$client.end();
     }

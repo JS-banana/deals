@@ -607,6 +607,7 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
     const rollback = new Error('rollback renewal fixture');
     await expect(
       db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(918273)`);
         const seasonal = `${prefix}-renewal`;
         await tx.insert(events).values({
           slug: seasonal,
@@ -736,6 +737,7 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
     const rollback = new Error('rollback renewal fallback fixture');
     await expect(
       db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(918273)`);
         const seasonal = `${prefix}-renewal-fallback`;
         await tx.insert(events).values({
           slug: seasonal,
