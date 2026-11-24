@@ -30,6 +30,7 @@ import {
 import { bump, sha256 } from './util.ts';
 import {
   checkDates,
+  dropRateAcceptable,
   missingMerchantEvidence,
   pickEvent,
   stripUnverified,
@@ -268,7 +269,12 @@ export async function extractCandidate(
 
   const { kept, dropped } = verifyEvidence(extraction.evidence, sources);
   if (!kept.length) return skip('no-verified-evidence');
-  let confidence = extraction.confidence - 0.1 * dropped - 0.15 * notes.length;
+  const dropPenaltyWaived =
+    input.curated === true &&
+    dropped > 0 &&
+    dropRateAcceptable(kept.length, dropped, 'curated_community');
+  let confidence =
+    extraction.confidence - (dropPenaltyWaived ? 0 : 0.1 * dropped) - 0.15 * notes.length;
   if (!input.curated && !kept.some((e) => e.url === page.url))
     confidence = Math.min(confidence, 0.6);
   confidence = Math.round(Math.max(0.05, Math.min(1, confidence)) * 100) / 100;
@@ -360,6 +366,7 @@ export async function extractCandidate(
         merchantUrl: page.url,
         upstreamText,
         dropped,
+        ...(dropPenaltyWaived ? { dropPenaltyWaived } : {}),
         notes,
         ...(input.curated ? { sourceTrust: 'curated' as const } : {}),
       },

@@ -14,6 +14,7 @@ import { type AuditCandidate, auditProposal, decideProposal, shouldExecute } fro
 import type { Job } from './runtime.ts';
 import { UPSTREAM_REPO } from './upstream.ts';
 import { bump } from './util.ts';
+import { dropRateAcceptable } from './verify.ts';
 
 const UNCONFIRMED_MERCHANT = '商家域名尚未经独立确认';
 
@@ -65,6 +66,19 @@ export const reviewPending: Job = async (ctx) => {
         sourceTrust: 'curated',
         notes: auditInputs.notes.filter((note) => note !== UNCONFIRMED_MERCHANT),
       };
+      if (
+        confidence < 0.8 &&
+        !auditInputs.notes.length &&
+        auditInputs.dropped > 0 &&
+        !auditInputs.dropPenaltyWaived &&
+        dropRateAcceptable(evidence.length, auditInputs.dropped, 'curated_community')
+      ) {
+        confidence = Math.min(
+          0.95,
+          Math.round((confidence + 0.1 * auditInputs.dropped) * 100) / 100,
+        );
+        auditInputs.dropPenaltyWaived = true;
+      }
       if (
         legacy &&
         auditInputs.dropped === 0 &&
