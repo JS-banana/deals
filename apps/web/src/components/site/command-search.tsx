@@ -70,11 +70,12 @@ export function CommandSearch() {
     >
       <DialogTrigger
         aria-label={t('title')}
-        className="inline-flex h-10 items-center gap-2 rounded-md px-2 text-sm text-muted-foreground hover:bg-muted"
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
-        <Search className="size-4" aria-hidden="true" />
-        <span className="hidden lg:inline">{t('title')}</span>
-        <kbd className="hidden text-xs lg:inline">⌘K</kbd>
+        <Search className="size-4 shrink-0" aria-hidden="true" />
+        <kbd className="hidden rounded border border-border/80 bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] leading-none text-muted-foreground sm:inline">
+          ⌘K
+        </kbd>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg" initialFocus={input}>
         <DialogTitle>{t('title')}</DialogTitle>

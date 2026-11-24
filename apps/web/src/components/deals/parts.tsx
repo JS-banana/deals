@@ -1,5 +1,5 @@
 import type { DealView } from '@deals/core';
-import { BadgeCheck, Clock, Users } from 'lucide-react';
+import { BadgeCheck, Clock } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -177,12 +177,11 @@ export function CouponChip({ deal }: { deal: DealView }) {
 }
 
 /**
- * Exception-only badges: ending soon, upcoming, ended, community-sourced. Every badge has a solid
- * background so cards can hang them over their top border.
+ * Ending-soon, upcoming and ended badges with solid backgrounds for deal cards and details.
  */
 export function DealBadges({ badges, className }: { badges: ExceptionBadges; className?: string }) {
   const t = useTranslations('deal.badge');
-  if (!badges.ending && !badges.upcoming && !badges.ended && !badges.community) return null;
+  if (!badges.ending && !badges.upcoming && !badges.ended) return null;
   return (
     <ul className={cn('flex flex-wrap gap-1.5', className)}>
       {badges.ending && (
@@ -202,14 +201,6 @@ export function DealBadges({ badges, className }: { badges: ExceptionBadges; cla
         <li>
           <Badge variant="secondary" className="bg-muted text-muted-foreground">
             {t('ended')}
-          </Badge>
-        </li>
-      )}
-      {badges.community && (
-        <li>
-          <Badge variant="outline" className="bg-card text-muted-foreground">
-            <Users aria-hidden="true" />
-            {t('community')}
           </Badge>
         </li>
       )}

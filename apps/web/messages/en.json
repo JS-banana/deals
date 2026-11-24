@@ -3,7 +3,7 @@
     "siteName": "Deal Index",
     "home": "Deal Index home",
     "title": "Deal Index · Software deals and coupon codes",
-    "description": "Curated software deals from Black Friday, Cyber Monday and other sales: real prices, renewal terms, coupon codes and deadlines, each traceable to its source.",
+    "description": "Curated software deals from Black Friday, Cyber Monday and other sales: real prices, renewal terms, coupon codes and deadlines.",
     "brandSub": "",
     "seasonTitle": "{event} Software Deals",
     "keywords": "software deals,Black Friday software deals,Cyber Monday software deals,coupon codes,discount codes,lifetime deals,Mac app deals,SaaS deals"
@@ -23,7 +23,7 @@
   },
   "footer": {
     "label": "Site information",
-    "tagline": "Software discounts from around the world, with prices, renewals, eligibility and sources spelled out.",
+    "tagline": "Software discounts from around the world, with prices, renewals and eligibility spelled out.",
     "about": "How we curate",
     "events": "All events",
     "feedback": "Report an issue"
@@ -127,7 +127,11 @@
     "viewEvent": "Explore {event}",
     "pick": "Editor's pick",
     "genericTitle": "Software deals, spelled out",
-    "genericText": "Compare real prices, renewal terms, coupon codes and deadlines. Every deal names its source.",
+    "genericText": "Compare real prices, renewal terms, coupon codes and deadlines.",
+    "seasonSuffix": "Software Deals",
+    "subtitleCount": "{count, plural, one {# active deal} other {# active deals}}",
+    "searchButton": "Search",
+    "clearSearch": "Clear search",
     "quick": {
       "ai": "AI tools",
       "lifetime": "Lifetime licenses",
@@ -172,6 +176,10 @@
     "visit": "Go to merchant page",
     "checkoutNote": "The checkout price is final. Opens in a new tab.",
     "details": "Deal details",
+    "validity": "Valid",
+    "until": "Until {date}",
+    "from": "From {date}",
+    "offerNotes": "Offer details",
     "plan": "Plan",
     "terms": "Terms",
     "eligibility": "Eligibility",

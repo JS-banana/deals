@@ -9,19 +9,17 @@ export function SiteFooter() {
   const t = useTranslations('footer');
   const locale = useLocale();
   return (
-    <footer className="mt-16 border-t">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between lg:px-8">
-        <div className="max-w-sm space-y-3">
+    <footer className="mt-14 border-t">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-7 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+        <div className="flex flex-col gap-1.5">
           <Brand compact />
           <p className="text-sm text-muted-foreground">{t('tagline')}</p>
         </div>
         <nav
           aria-label={t('label')}
-          className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground"
+          className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground"
         >
-          <Link href="/about" className="hover:text-foreground">
-            {t('about')}
-          </Link>
+          <TipForm />
           <Link href="/events" className="hover:text-foreground">
             {t('events')}
           </Link>
@@ -31,10 +29,6 @@ export function SiteFooter() {
           >
             RSS
           </a>
-          <a href={`${REPO}/issues`} className="hover:text-foreground">
-            {t('feedback')}
-          </a>
-          <TipForm />
           <a href={REPO} className="hover:text-foreground">
             GitHub
           </a>

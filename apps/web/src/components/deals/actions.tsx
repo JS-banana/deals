@@ -120,7 +120,7 @@ export function SaveButton({
         variant="outline"
         aria-pressed={saved}
         onClick={() => toggleSaved(key, slug)}
-        className={cn('h-11 gap-2 px-4 text-sm', saved && 'border-primary/40', className)}
+        className={cn('h-10 gap-2 px-4 text-sm', saved && 'border-primary/40', className)}
       >
         {icon}
         {saved ? t('saved') : t('save')}
@@ -145,13 +145,13 @@ export function SaveButton({
   );
 }
 
-/** Adds the deal to the comparison tray (max three): a labelled checkbox, or an icon toggle on cards. */
+/** Toggles inclusion in the comparison tray. */
 export function CompareToggle({
   row,
   variant = 'label',
 }: {
   row: CompareRow;
-  variant?: 'label' | 'icon';
+  variant?: 'label' | 'icon' | 'button';
 }) {
   const t = useTranslations('actions');
   const rows = useCompare();
@@ -161,7 +161,7 @@ export function CompareToggle({
   function toggle() {
     if (!toggleCompare(row)) toast.info(t('compareFull', { max: COMPARE_MAX }));
   }
-  if (variant === 'icon') {
+  if (variant !== 'label') {
     return (
       <button
         type="button"
@@ -170,9 +170,15 @@ export function CompareToggle({
         title={full ? t('compareFull', { max: COMPARE_MAX }) : t('compare')}
         aria-disabled={full}
         onClick={toggle}
-        className="relative z-10 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground"
+        className={cn(
+          'relative z-10 inline-flex shrink-0 items-center justify-center transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground',
+          variant === 'icon'
+            ? 'size-9 rounded-lg text-muted-foreground'
+            : 'h-11 gap-2 rounded-xl border border-border bg-background px-3.5 text-sm font-medium dark:border-input dark:bg-input/30 dark:hover:bg-input/50 aria-pressed:border-primary/30',
+        )}
       >
         <Scale className="size-4.5" aria-hidden="true" />
+        {variant === 'button' && t('compare')}
       </button>
     );
   }

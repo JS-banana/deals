@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { Discovery, parsePage } from '@/components/deals/discovery';
 import { Hero } from '@/components/home/hero';
-import { TopicsSection } from '@/components/home/topics-section';
 import { getEvents, getLang, getNow, getPublishedDeals } from '@/lib/data';
 import { eventPhase } from '@/lib/deal-view';
 import { alternatesFor, JsonLd, pageUrl } from '@/lib/seo';
@@ -52,30 +51,29 @@ export default async function HomePage(props: PageProps<'/[locale]'>) {
   ]);
   const now = getNow();
   const featured = featuredEvent(events, now);
-  const pickDeal = (featured ? deals.filter((d) => d.event.slug === featured.slug) : deals).find(
-    (d) => dealState(d, now) !== 'ended',
-  );
+  const filters = parseFilters(params);
+  const activeCount = deals.filter((d) => dealState(d, now) !== 'ended').length;
   const home = pageUrl('/', locale);
 
   return (
     <>
-      <Hero event={featured} pickDeal={pickDeal} now={now} />
+      <Hero event={featured} filters={filters} activeCount={activeCount} now={now} />
       <section
         aria-labelledby="deals-title"
-        className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8"
+        className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 sm:pt-7 lg:px-8"
       >
-        <h2 id="deals-title" className="mb-5 text-2xl font-semibold">
+        <h2 id="deals-title" className="sr-only">
           {t('discover.title')}
         </h2>
         <Discovery
           deals={deals}
-          filters={parseFilters(params)}
+          filters={filters}
           page={parsePage(params.page)}
           basePath="/"
+          hideSearch
           now={now}
         />
       </section>
-      <TopicsSection deals={deals} now={now} />
       <JsonLd
         data={{
           '@context': 'https://schema.org',

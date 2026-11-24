@@ -12,7 +12,7 @@ import {
   STATUS_FILTERS,
   type StatusFilter,
 } from '@deals/core';
-import { ArrowDownUp, ChevronDown, LayoutGrid, Loader2, Search, X } from 'lucide-react';
+import { ArrowDownUp, Check, Loader2, Search, X } from 'lucide-react';
 import { useLinkStatus } from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -26,9 +26,17 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import { CATEGORY_UI, toLocale } from '@/lib/deal-view';
+import { toLocale } from '@/lib/deal-view';
+import { cn } from '@/lib/utils';
 
 const isDefault = (f: ListFilters, fixed?: CategorySlug) =>
   (Boolean(fixed) || f.category === DEFAULT_FILTERS.category) &&
@@ -38,13 +46,14 @@ const isDefault = (f: ListFilters, fixed?: CategorySlug) =>
   !f.lifetime &&
   f.sort === DEFAULT_FILTERS.sort;
 
-/** A checkbox/radio drawn as a pill. The native input keeps it working without JavaScript. */
+/** A checkbox/radio drawn as a pill or tab. The native input keeps it working without JS. */
 function Chip({
   type,
   name,
   value,
   checked,
   onChange,
+  variant = 'default',
   children,
 }: {
   type: 'radio' | 'checkbox';
@@ -52,8 +61,10 @@ function Chip({
   value: string;
   checked: boolean;
   onChange: () => void;
+  variant?: 'default' | 'compact';
   children: ReactNode;
 }) {
+  const compact = variant === 'compact';
   return (
     <label className="relative inline-flex shrink-0 cursor-pointer">
       <input
@@ -64,7 +75,21 @@ function Chip({
         onChange={onChange}
         className="peer sr-only"
       />
-      <span className="inline-flex h-10 items-center gap-1.5 rounded-full border bg-background px-3.5 text-sm whitespace-nowrap text-muted-foreground transition-colors select-none hover:bg-muted hover:text-foreground peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 sm:h-9 [&_svg]:size-4 [&_svg]:shrink-0">
+      <span
+        className={
+          type === 'radio'
+            ? compact
+              ? 'inline-flex h-9 items-center rounded-full px-3 text-sm whitespace-nowrap text-muted-foreground transition-colors select-none hover:bg-muted hover:text-foreground peer-checked:bg-primary peer-checked:font-medium peer-checked:text-primary-foreground peer-checked:shadow-xs peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50'
+              : 'relative inline-flex h-10 items-center px-0.5 text-sm whitespace-nowrap text-muted-foreground transition-colors select-none hover:text-foreground peer-checked:font-semibold peer-checked:text-foreground peer-focus-visible:rounded-sm peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors peer-checked:after:bg-primary'
+            : cn(
+                'inline-flex items-center gap-1.5 bg-muted/75 text-sm whitespace-nowrap text-muted-foreground transition-colors select-none hover:bg-muted hover:text-foreground peer-checked:bg-primary peer-checked:font-medium peer-checked:text-primary-foreground peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
+                compact ? 'h-9 rounded-lg px-3' : 'h-10 rounded-xl px-3.5',
+              )
+        }
+      >
+        {type === 'checkbox' && checked && (
+          <Check className="size-3.5 shrink-0" aria-hidden="true" />
+        )}
         {children}
       </span>
     </label>
@@ -78,11 +103,14 @@ function Chip({
 export function FilterBar({
   filters,
   fixedCategory,
+  hideSearch = false,
   total,
 }: {
   filters: ListFilters;
   /** Set on category pages: the category is part of the path, so its chips are hidden. */
   fixedCategory?: CategorySlug;
+  /** True on the homepage where the Hero provides the primary search bar. */
+  hideSearch?: boolean;
   total: number;
 }) {
   const t = useTranslations('discover');
@@ -102,8 +130,7 @@ export function FilterBar({
     latest.current = view;
   });
   useEffect(() => () => window.clearTimeout(timer.current), []);
-  // Follow the URL when it changes from outside (back button, "clear filters"), but never while
-  // our own newer query is still in flight.
+  // Follow the URL when it changes from outside (HeroSearch, back button, "clear filters").
   useEffect(() => {
     if (!pending && filters.q !== sentQ.current) {
       sentQ.current = filters.q;
@@ -131,6 +158,156 @@ export function FilterBar({
     timer.current = window.setTimeout(() => navigate({ ...latest.current, q: value }), 350);
   }
 
+  const dirty = !isDefault(view, fixedCategory);
+
+  const resultControls = (
+    <>
+      <p
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-2 text-sm text-muted-foreground tabular-nums"
+      >
+        {pending && (
+          <>
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            <span className="sr-only">{t('updating')}</span>
+          </>
+        )}
+        {t('count', { count: total })}
+      </p>
+      {dirty && (
+        <Link
+          href={pathname}
+          scroll={false}
+          onClick={(event) => {
+            event.preventDefault();
+            window.clearTimeout(timer.current);
+            setQ('');
+            navigate({ ...DEFAULT_FILTERS });
+          }}
+          className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm text-foreground underline-offset-4 hover:underline"
+        >
+          <X className="size-4" aria-hidden="true" />
+          {t('clear')}
+        </Link>
+      )}
+    </>
+  );
+
+  const compactSelectClass = hideSearch
+    ? 'h-9 rounded-lg border-border/80 bg-card px-3 text-sm shadow-2xs data-[size=default]:h-9 dark:bg-card dark:hover:bg-muted'
+    : 'h-10 rounded-xl border-border/80 bg-card px-3.5 text-sm shadow-2xs data-[size=default]:h-10 dark:bg-card dark:hover:bg-muted';
+
+  const filterSelectsAndToggles = (
+    <div
+      className={cn('flex flex-wrap items-center gap-2', hideSearch ? 'lg:ml-auto' : 'md:ml-auto')}
+    >
+      <Chip
+        type="checkbox"
+        name="lifetime"
+        value="1"
+        checked={view.lifetime}
+        onChange={() => set({ lifetime: !view.lifetime })}
+        variant={hideSearch ? 'compact' : 'default'}
+      >
+        {t('lifetime')}
+      </Chip>
+      <Chip
+        type="checkbox"
+        name="existing"
+        value="1"
+        checked={view.existing}
+        onChange={() => set({ existing: !view.existing })}
+        variant={hideSearch ? 'compact' : 'default'}
+      >
+        {t('existing')}
+      </Chip>
+      <span
+        aria-hidden="true"
+        className={cn('mx-0.5 hidden w-px bg-border sm:block', hideSearch ? 'h-4' : 'h-5')}
+      />
+      <Select
+        items={Object.fromEntries(STATUS_FILTERS.map((s) => [s, t(`status.${s}`)]))}
+        value={view.status}
+        onValueChange={(value) => {
+          if (value) set({ status: value as StatusFilter });
+        }}
+      >
+        <SelectTrigger aria-label={t('statusLabel')} className={compactSelectClass}>
+          <SelectValue>{t(`status.${view.status}`)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {STATUS_FILTERS.map((status) => (
+            <SelectItem key={status} value={status}>
+              {t(`status.${status}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        items={Object.fromEntries(SORTS.map((s) => [s, t(`sort.${s}`)]))}
+        value={view.sort}
+        onValueChange={(value) => {
+          if (value) set({ sort: value as Sort });
+        }}
+      >
+        <SelectTrigger aria-label={t('sortLabel')} className={compactSelectClass}>
+          <ArrowDownUp className="size-3.5 text-muted-foreground" aria-hidden="true" />
+          <SelectValue>{t(`sort.${view.sort}`)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {SORTS.map((sort) => (
+            <SelectItem key={sort} value={sort}>
+              {t(`sort.${sort}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const categoryList = (
+    <fieldset
+      className={cn(
+        '-mx-4 min-w-0 px-4 sm:mx-0 sm:px-0',
+        hideSearch ? 'w-full lg:w-auto lg:flex-1' : 'flex-1',
+      )}
+    >
+      <legend className="sr-only">{t('categoryLabel')}</legend>
+      <div
+        className={
+          hideSearch
+            ? 'flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden'
+            : '-mb-px flex gap-5 overflow-x-auto [scrollbar-width:none] sm:flex-wrap sm:gap-6 sm:overflow-visible [&::-webkit-scrollbar]:hidden'
+        }
+      >
+        <Chip
+          type="radio"
+          name="category"
+          value=""
+          checked={view.category === null}
+          onChange={() => set({ category: null })}
+          variant={hideSearch ? 'compact' : 'default'}
+        >
+          {t('all')}
+        </Chip>
+        {CATEGORIES.map((category) => (
+          <Chip
+            key={category.slug}
+            type="radio"
+            name="category"
+            value={category.slug}
+            checked={view.category === category.slug}
+            onChange={() => set({ category: category.slug })}
+            variant={hideSearch ? 'compact' : 'default'}
+          >
+            {pick(category.name, locale)}
+          </Chip>
+        ))}
+      </div>
+    </fieldset>
+  );
+
   return (
     <search aria-label={t('label')}>
       <form
@@ -142,170 +319,74 @@ export function FilterBar({
           window.clearTimeout(timer.current);
           navigate({ ...latest.current, q });
         }}
-        className="space-y-3 rounded-2xl border bg-card p-3 sm:p-4"
+        className={hideSearch ? 'space-y-3' : 'space-y-4'}
       >
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <label htmlFor="deal-q" className="sr-only">
-              {t('searchLabel')}
-            </label>
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="deal-q"
-              type="search"
-              name="q"
-              value={q}
-              enterKeyHint="search"
-              autoComplete="off"
-              placeholder={t('searchPlaceholder')}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => onQuery(event.target.value)}
-              onCompositionStart={() => {
-                composing.current = true;
-              }}
-              onCompositionEnd={(event) => {
-                composing.current = false;
-                onQuery(event.currentTarget.value);
-              }}
-              className="h-11 rounded-xl pl-10 text-base sm:text-sm"
-            />
-          </div>
-          <div className="relative sm:w-48">
-            <label htmlFor="deal-sort" className="sr-only">
-              {t('sortLabel')}
-            </label>
-            <ArrowDownUp
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <select
-              id="deal-sort"
-              name="sort"
-              value={view.sort}
-              onChange={(event) => set({ sort: event.target.value as Sort })}
-              className="h-11 w-full appearance-none rounded-xl border border-input bg-transparent pr-9 pl-10 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:text-sm dark:bg-input/30"
-            >
-              {SORTS.map((sort) => (
-                <option key={sort} value={sort}>
-                  {t(`sort.${sort}`)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </div>
-        </div>
+        <input type="hidden" name="status" value={view.status} />
+        <input type="hidden" name="sort" value={view.sort} />
+        {hideSearch && q.trim() && <input type="hidden" name="q" value={q} />}
 
-        {!fixedCategory && (
-          <fieldset className="-mx-3 min-w-0 px-3 sm:mx-0 sm:px-0">
-            <legend className="sr-only">{t('categoryLabel')}</legend>
-            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
-              <Chip
-                type="radio"
-                name="category"
-                value=""
-                checked={view.category === null}
-                onChange={() => set({ category: null })}
-              >
-                <LayoutGrid aria-hidden="true" />
-                {t('all')}
-              </Chip>
-              {CATEGORIES.map((category) => {
-                const Icon = CATEGORY_UI[category.slug].icon;
-                return (
-                  <Chip
-                    key={category.slug}
-                    type="radio"
-                    name="category"
-                    value={category.slug}
-                    checked={view.category === category.slug}
-                    onChange={() => set({ category: category.slug })}
-                  >
-                    <Icon aria-hidden="true" />
-                    {pick(category.name, locale)}
-                  </Chip>
-                );
-              })}
+        {hideSearch ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+              {!fixedCategory && categoryList}
+              {filterSelectsAndToggles}
             </div>
-          </fieldset>
+            {(dirty || pending) && (
+              <div className="flex items-center justify-between gap-2">{resultControls}</div>
+            )}
+          </>
+        ) : (
+          <>
+            {!fixedCategory && (
+              <div className="flex items-center justify-between gap-4 border-b border-border">
+                {categoryList}
+                <div className="hidden shrink-0 items-center gap-2 pb-1 sm:flex">
+                  {resultControls}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="relative w-full md:min-w-56 md:max-w-md md:flex-1 lg:max-w-lg">
+                <label htmlFor="deal-q" className="sr-only">
+                  {t('searchLabel')}
+                </label>
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="deal-q"
+                  type="search"
+                  name="q"
+                  value={q}
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  placeholder={t('searchPlaceholder')}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => onQuery(event.target.value)}
+                  onCompositionStart={() => {
+                    composing.current = true;
+                  }}
+                  onCompositionEnd={(event) => {
+                    composing.current = false;
+                    onQuery(event.currentTarget.value);
+                  }}
+                  className="h-10 rounded-xl border-border/80 bg-card pl-10 text-sm shadow-2xs dark:bg-card"
+                />
+              </div>
+              {filterSelectsAndToggles}
+              <div
+                className={
+                  fixedCategory
+                    ? 'ml-auto flex items-center gap-2'
+                    : 'ml-auto flex items-center gap-2 sm:hidden'
+                }
+              >
+                {resultControls}
+              </div>
+            </div>
+          </>
         )}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <fieldset className="-mx-3 max-w-[calc(100%+1.5rem)] min-w-0 px-3 sm:mx-0 sm:max-w-full sm:px-0">
-            <legend className="sr-only">{t('statusLabel')}</legend>
-            <div className="flex w-max gap-0.5 rounded-xl bg-muted p-1">
-              {STATUS_FILTERS.map((status: StatusFilter) => (
-                <label key={status} className="relative inline-flex cursor-pointer">
-                  <input
-                    type="radio"
-                    name="status"
-                    value={status}
-                    checked={view.status === status}
-                    onChange={() => set({ status })}
-                    className="peer sr-only"
-                  />
-                  <span className="inline-flex h-10 items-center rounded-lg px-3 text-sm whitespace-nowrap text-muted-foreground transition-colors select-none hover:text-foreground peer-checked:bg-card peer-checked:font-medium peer-checked:text-foreground peer-checked:shadow-xs peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 sm:h-8">
-                    {t(`status.${status}`)}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div className="flex flex-wrap gap-2">
-            <Chip
-              type="checkbox"
-              name="lifetime"
-              value="1"
-              checked={view.lifetime}
-              onChange={() => set({ lifetime: !view.lifetime })}
-            >
-              {t('lifetime')}
-            </Chip>
-            <Chip
-              type="checkbox"
-              name="existing"
-              value="1"
-              checked={view.existing}
-              onChange={() => set({ existing: !view.existing })}
-            >
-              {t('existing')}
-            </Chip>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <p
-              role="status"
-              aria-live="polite"
-              className="flex items-center gap-2 text-sm text-muted-foreground tabular-nums"
-            >
-              {pending && (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                  <span className="sr-only">{t('updating')}</span>
-                </>
-              )}
-              {t('count', { count: total })}
-            </p>
-            {!isDefault(view, fixedCategory) && (
-              <Link
-                href={pathname}
-                scroll={false}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setQ('');
-                  navigate({ ...DEFAULT_FILTERS });
-                }}
-                className="inline-flex h-10 items-center gap-1 rounded-lg px-2.5 text-sm text-foreground underline-offset-4 hover:underline sm:h-9"
-              >
-                <X className="size-4" aria-hidden="true" />
-                {t('clear')}
-              </Link>
-            )}
-          </div>
-        </div>
         {!hydrated && (
           <Button type="submit" className="h-10 px-4">
             {t('apply')}

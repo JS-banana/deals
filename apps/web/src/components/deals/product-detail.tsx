@@ -1,5 +1,5 @@
 import { type DealView, formatMoney, pick } from '@deals/core';
-import { ExternalLink, ShieldCheck, Users } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import {
@@ -25,19 +25,26 @@ const host = (url: string) => new URL(url).host.replace(/^www\./, '');
 export function ProductHeader({
   product,
   level = 'h1',
+  compact = false,
 }: {
   product: DealView['product'];
   level?: 'h1' | 'h2';
+  compact?: boolean;
 }) {
-  const t = useTranslations('product');
   const locale = toLocale(useLocale());
   const Heading = level;
   const Icon = CATEGORY_UI[product.category].icon;
   return (
     <div className="flex items-start gap-4">
-      <ProductLogo product={product} size="lg" />
-      <div className="min-w-0 space-y-2">
-        <Heading id="product-title" className="text-3xl font-semibold text-balance sm:text-4xl">
+      <ProductLogo product={product} size={compact ? 'md' : 'lg'} />
+      <div className={cn('min-w-0', compact ? 'space-y-1.5' : 'space-y-2')}>
+        <Heading
+          id="product-title"
+          className={cn(
+            'font-semibold text-balance',
+            compact ? 'pr-8 text-2xl' : 'text-3xl sm:text-4xl',
+          )}
+        >
           {product.name}
         </Heading>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
@@ -58,188 +65,183 @@ export function ProductHeader({
               rel="noopener"
               className="inline-flex min-h-8 items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
             >
-              {t('website')}: {host(product.website)}
+              {host(product.website)}
               <ExternalLink className="size-3.5" aria-hidden="true" />
             </a>
           )}
         </div>
-        <p className="max-w-prose text-muted-foreground">{pick(product.summary, locale)}</p>
+        <p className={cn('max-w-prose text-muted-foreground', compact && 'text-sm')}>
+          {pick(product.summary, locale)}
+        </p>
       </div>
     </div>
   );
 }
 
 /** Price, coupon, deadline and the primary call to action. */
-export function DealPanel({ deal, now }: { deal: DealView; now: Date }) {
+export function DealPanel({
+  deal,
+  now,
+  variant = 'page',
+}: {
+  deal: DealView;
+  now: Date;
+  variant?: 'page' | 'modal';
+}) {
   const t = useTranslations('product');
   const td = useTranslations('deal');
   const fmt = useFormatter();
   const locale = toLocale(useLocale());
   const badges = exceptionBadges(deal, now);
   const note = cardNote(deal, locale);
+  const modal = variant === 'modal';
   return (
     <section
       aria-label={t('panel')}
-      className="space-y-4 rounded-2xl border bg-card p-5 text-card-foreground shadow-xs"
+      className={cn(
+        'rounded-2xl border text-card-foreground',
+        modal ? 'space-y-3.5 bg-muted/40 p-4 sm:p-5' : 'space-y-4 bg-card p-5 shadow-xs',
+      )}
     >
-      <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {pick(deal.event.name, locale)} · {pick(deal.plan, locale)}
         </p>
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <DealBadges badges={badges} />
+          <DeadlineText due={deadline(deal, now, td, fmt)} className="text-xs" />
+        </div>
+      </div>
+      <div className="space-y-2">
         <PriceLine parts={priceParts(deal, locale, td)} size="lg" />
         {note && <p className="text-sm text-muted-foreground">{note}</p>}
       </div>
-      <DealBadges badges={badges} />
-      <CouponLine deal={deal} />
-      <DeadlineText due={deadline(deal, now, td, fmt)} />
-      <a
-        href={deal.merchantUrl}
-        target="_blank"
-        rel="noopener"
-        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-base font-medium text-primary-foreground transition-colors outline-none hover:bg-primary/85 focus-visible:ring-3 focus-visible:ring-ring/50"
+      {(deal.code || deal.noCode) && <CouponLine deal={deal} />}
+      <div
+        className={
+          modal
+            ? 'flex flex-wrap items-center gap-2'
+            : 'grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-4'
+        }
       >
-        {t('visit')}
-        <ExternalLink className="size-4" aria-hidden="true" />
-      </a>
-      <div className="flex items-center gap-2">
+        <a
+          href={deal.merchantUrl}
+          target="_blank"
+          rel="noopener"
+          className={cn(
+            'inline-flex items-center justify-center gap-2 rounded-xl bg-primary font-medium text-primary-foreground transition-colors outline-none hover:bg-primary/85 focus-visible:ring-3 focus-visible:ring-ring/50',
+            modal ? 'h-11 min-w-40 flex-1 px-4 text-sm' : 'col-span-2 h-12 w-full px-5 text-base',
+          )}
+        >
+          {t('visit')}
+          <ExternalLink className="size-4" aria-hidden="true" />
+        </a>
         <SaveButton
           variant="full"
           slug={deal.product.slug}
           dealId={deal.id}
           name={deal.product.name}
-          className="flex-1"
+          className={modal ? 'h-11 shrink-0 rounded-xl px-3.5' : undefined}
         />
-        <CompareToggle row={compareRow(deal, now, locale, td, fmt)} />
+        <CompareToggle
+          row={compareRow(deal, now, locale, td, fmt)}
+          variant={modal ? 'button' : 'label'}
+        />
       </div>
       <p className="text-xs text-muted-foreground">{t('checkoutNote')}</p>
     </section>
   );
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-1 py-3 sm:grid-cols-[7rem_1fr] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-sm/relaxed">{children}</dd>
-    </div>
-  );
-}
-
-/** Detail rows: terms, eligibility, renewal, start and end with an honest precision label. */
-export function DealFacts({ deal, now }: { deal: DealView; now: Date }) {
+/** Terms, eligibility, renewal and the published validity window. */
+export function DealFacts({
+  deal,
+  now,
+  variant = 'page',
+}: {
+  deal: DealView;
+  now: Date;
+  variant?: 'page' | 'modal';
+}) {
   const t = useTranslations('product');
   const fmt = useFormatter();
   const locale = toLocale(useLocale());
+  const modal = variant === 'modal';
 
-  const bound = (at: string | null, on: string | null, unknown: React.ReactNode) => {
-    if (at) {
-      return (
-        <>
-          <span className="tabular-nums">{instantLabel(at, now, fmt, true)}</span>{' '}
-          <span className="text-muted-foreground">{t('zone')}</span>
-        </>
-      );
-    }
-    if (on) {
-      return (
-        <>
-          <span className="tabular-nums">{dayLabel(on, now, fmt, true)}</span>{' '}
-          <span className="text-muted-foreground">
-            · {t('dateOnly')}
-            {deal.dateZone ? ` (${deal.dateZone})` : ''}
-          </span>
-        </>
-      );
-    }
-    return unknown;
+  const bound = (at: string | null, on: string | null) => {
+    if (at) return `${instantLabel(at, now, fmt, true)} ${t('zone')}`;
+    return on ? dayLabel(on, now, fmt, true) : null;
   };
+  const start = bound(deal.startsAt, deal.startsOn);
+  const end = bound(deal.endsAt, deal.endsOn);
+  let validity: string | null = null;
+  if (start && end) validity = `${start} – ${end}`;
+  else if (end) validity = t('until', { date: end });
+  else if (start) validity = t('from', { date: start });
 
-  const started = bound(
-    deal.startsAt,
-    deal.startsOn,
-    <span className="text-muted-foreground">
-      {t('unannounced')}
-      {deal.observedLiveOn
-        ? ` · ${t('observedLive', { date: dayLabel(deal.observedLiveOn, now, fmt, true) })}`
-        : ''}
-    </span>,
-  );
-  const ends = bound(
-    deal.endsAt,
-    deal.endsOn,
-    <span className="text-muted-foreground">{t('unannounced')}</span>,
-  );
+  const terms = pick(deal.terms, locale);
+  const benefit = pick(deal.benefitSummary, locale);
+  const howToClaim = pick(deal.howToClaim, locale);
+  const notes = [
+    [t('terms'), terms],
+    [t('benefit'), benefit],
+    [t('howToClaim'), howToClaim],
+  ].filter(([, value]) => value);
+  const rows = [
+    [t('offerType'), deal.offerType === 'discount' ? null : t(`offerTypes.${deal.offerType}`)],
+    ...(modal ? [] : notes),
+    [t('validity'), validity],
+    [t('eligibility'), pick(deal.eligibility, locale)],
+    [t('existingUsers'), deal.existingUsers ? t('yes') : null],
+    [t('renewal'), pick(deal.renewal, locale)],
+  ].filter(([, value]) => value);
 
   return (
-    <dl className="divide-y">
-      <Fact label={t('plan')}>{pick(deal.plan, locale)}</Fact>
-      <Fact label={t('offerType')}>{t(`offerTypes.${deal.offerType}`)}</Fact>
-      {deal.benefitSummary && <Fact label={t('benefit')}>{pick(deal.benefitSummary, locale)}</Fact>}
-      {deal.howToClaim && (
-        <Fact label={t('howToClaim')}>
-          <p className="whitespace-pre-line">{pick(deal.howToClaim, locale)}</p>
-        </Fact>
+    <div className={modal ? 'space-y-3.5' : undefined}>
+      {modal && notes.length > 0 && (
+        <section className="space-y-3" aria-labelledby="offer-notes-title">
+          <h3 id="offer-notes-title" className="text-sm font-medium text-foreground">
+            {t('offerNotes')}
+          </h3>
+          {notes.map(([label, value]) => (
+            <p key={label} className="text-sm/relaxed whitespace-pre-line text-muted-foreground">
+              {notes.length > 1 && (
+                <span className="font-medium text-foreground">
+                  {label}
+                  {locale === 'zh' ? '：' : ': '}
+                </span>
+              )}
+              {value}
+            </p>
+          ))}
+        </section>
       )}
-      <Fact label={t('terms')}>{pick(deal.terms, locale)}</Fact>
-      {deal.eligibility && <Fact label={t('eligibility')}>{pick(deal.eligibility, locale)}</Fact>}
-      {deal.existingUsers && <Fact label={t('existingUsers')}>{t('yes')}</Fact>}
-      {deal.renewal && <Fact label={t('renewal')}>{pick(deal.renewal, locale)}</Fact>}
-      <Fact label={t('starts')}>{started}</Fact>
-      <Fact label={t('ends')}>{ends}</Fact>
-    </dl>
-  );
-}
-
-/** Where the deal comes from and when it was last checked. */
-export function DealSources({ deal, now }: { deal: DealView; now: Date }) {
-  const t = useTranslations('product');
-  // Chinese sentences join without a space after the full stop.
-  const gap = useLocale() === 'zh' ? '' : ' ';
-  const fmt = useFormatter();
-  const checked = dayLabel(deal.checkedOn, now, fmt, true);
-  return (
-    <section aria-labelledby="sources-title" className="space-y-3">
-      <h2 id="sources-title" className="text-lg font-semibold">
-        {t('sources')}
-      </h2>
-      <ul className="space-y-2 text-sm">
-        {deal.sourceUrl && (
-          <li>
-            <a
-              href={deal.sourceUrl}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex min-h-8 items-center gap-1.5 font-medium underline-offset-4 hover:underline"
+      {rows.length > 0 && (
+        <dl
+          className={
+            modal ? 'grid grid-cols-1 gap-x-6 gap-y-2.5 border-t pt-3.5 sm:grid-cols-2' : 'divide-y'
+          }
+        >
+          {rows.map(([label, value]) => (
+            <div
+              key={label}
+              className={modal ? undefined : 'grid gap-1 py-3 sm:grid-cols-[7rem_1fr] sm:gap-4'}
             >
-              <Users className="size-4 text-muted-foreground" aria-hidden="true" />
-              {t('communitySource')}
-              <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            </a>
-            <span className="ml-1 text-muted-foreground">{host(deal.sourceUrl)}</span>
-          </li>
-        )}
-        {deal.verified && (
-          <li>
-            <a
-              href={deal.merchantUrl}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex min-h-8 items-center gap-1.5 font-medium underline-offset-4 hover:underline"
-            >
-              <ShieldCheck className="size-4 text-live-foreground" aria-hidden="true" />
-              {t('merchantSource')}
-              <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            </a>
-            <span className="ml-1 text-muted-foreground">{host(deal.merchantUrl)}</span>
-          </li>
-        )}
-      </ul>
-      <p className="text-sm text-muted-foreground">
-        {deal.verified ? t('verifiedNote') : t('communityNote')}
-        {gap}
-        {t('checkedOn', { date: checked })}
-      </p>
-    </section>
+              <dt className={cn('text-muted-foreground', modal ? 'text-xs' : 'text-sm')}>
+                {label}
+              </dt>
+              <dd
+                className={
+                  modal ? 'text-sm text-foreground' : 'text-sm/relaxed whitespace-pre-line'
+                }
+              >
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
   );
 }
 

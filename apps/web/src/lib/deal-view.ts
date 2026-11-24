@@ -190,17 +190,15 @@ export interface ExceptionBadges {
   ending: 'precise' | 'date' | null;
   upcoming: boolean;
   ended: boolean;
-  community: boolean;
 }
 
-/** Badges exist only for exceptions. Live and verified deals carry none. */
+/** Badges highlight upcoming, ending-soon and ended deals. */
 export function exceptionBadges(d: DealView, now: Date): ExceptionBadges {
   const state = dealState(d, now);
   return {
     ending: isEndingSoon(d, now) ? (d.endsAt ? 'precise' : 'date') : null,
     upcoming: state === 'upcoming',
     ended: state === 'ended',
-    community: !d.verified,
   };
 }
 

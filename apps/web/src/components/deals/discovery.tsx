@@ -39,6 +39,7 @@ export function Discovery({
   page,
   basePath,
   fixedCategory,
+  hideSearch = false,
   now,
 }: {
   deals: readonly DealView[];
@@ -47,6 +48,7 @@ export function Discovery({
   /** Unprefixed path of the page the list lives on, e.g. `/` or `/category/ai`. */
   basePath: string;
   fixedCategory?: CategorySlug;
+  hideSearch?: boolean;
   now: Date;
 }) {
   const t = useTranslations('discover');
@@ -66,7 +68,12 @@ export function Discovery({
 
   return (
     <div className="group/discovery space-y-5">
-      <FilterBar filters={filters} fixedCategory={fixedCategory} total={matches.length} />
+      <FilterBar
+        filters={filters}
+        fixedCategory={fixedCategory}
+        hideSearch={hideSearch}
+        total={matches.length}
+      />
       <div
         id="results"
         className="transition-opacity group-has-[[data-pending=true]]/discovery:opacity-60"

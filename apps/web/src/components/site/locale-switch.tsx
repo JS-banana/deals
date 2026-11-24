@@ -18,13 +18,13 @@ export function LocaleSwitch({ className }: { className?: string }) {
     <a
       href={search ? `${path}?${search}` : path}
       className={cn(
-        'inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+        'inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
         className,
       )}
       aria-label={t('switchLanguage')}
       hrefLang={next === 'zh' ? 'zh-CN' : 'en'}
     >
-      <Languages className="size-4" aria-hidden="true" />
+      <Languages className="hidden size-4 min-[360px]:block" aria-hidden="true" />
       <span>{next === 'zh' ? '中文' : 'EN'}</span>
     </a>
   );

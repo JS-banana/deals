@@ -34,7 +34,7 @@ export function DealModal({ children }: { children: ReactNode }) {
         <DialogContent
           showCloseButton={false}
           aria-labelledby="product-title"
-          className="max-h-[calc(100dvh-3rem)] gap-0 overflow-y-auto p-6 sm:max-w-3xl"
+          className="max-h-[calc(100dvh-3rem)] gap-0 overflow-y-auto p-5 sm:max-w-[38rem] sm:p-6"
         >
           <DialogClose
             render={

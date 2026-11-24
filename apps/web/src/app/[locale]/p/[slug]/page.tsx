@@ -8,7 +8,6 @@ import {
   DealFacts,
   DealHistory,
   DealPanel,
-  DealSources,
   PriceHistory,
   ProductHeader,
 } from '@/components/deals/product-detail';
@@ -132,7 +131,6 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
             </h2>
             <DealFacts deal={deal} now={now} />
           </section>
-          <DealSources deal={deal} now={now} />
           <CommunityVotes dealId={deal.id} />
           <DealHistory deals={deals} currentId={deal.id} now={now} />
           {deal.currency && <PriceHistory points={points} currency={deal.currency} />}

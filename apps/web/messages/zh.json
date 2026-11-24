@@ -3,7 +3,7 @@
     "siteName": "好价清单",
     "home": "好价清单首页",
     "title": "好价清单 · 软件优惠与折扣码",
-    "description": "中文软件优惠目录，收录黑五（Black Friday）、网一（Cyber Monday）等大促的软件折扣。按用途比较实付价格、续费条件、优惠码和截止日期，每条活动都可追溯来源。",
+    "description": "中文软件优惠目录，收录黑五（Black Friday）、网一（Cyber Monday）等大促的软件折扣。按用途比较实付价格、续费条件、优惠码和截止日期。",
     "brandSub": "DEAL INDEX",
     "seasonTitle": "{event}软件优惠与折扣码",
     "keywords": "软件优惠,软件折扣,优惠码,折扣码,黑五,黑色星期五,Black Friday,网一,Cyber Monday,终身买断,Mac 软件优惠,正版软件"
@@ -23,7 +23,7 @@
   },
   "footer": {
     "label": "网站信息",
-    "tagline": "整理全球软件的折扣活动：价格、续费、资格限制和来源，一次看清。",
+    "tagline": "整理全球软件的折扣活动：价格、续费与资格限制，一次看清。",
     "about": "收录标准",
     "events": "全部活动",
     "feedback": "反馈纠错"
@@ -127,7 +127,11 @@
     "viewEvent": "查看{event}活动",
     "pick": "编辑精选",
     "genericTitle": "软件优惠，一次看清",
-    "genericText": "按用途比较实付价格、续费条件、优惠码和截止日期。每条活动都标明来源。",
+    "genericText": "按用途比较实付价格、续费条件、优惠码和截止日期。",
+    "seasonSuffix": "软件优惠与折扣码",
+    "subtitleCount": "收录 {count} 条有效优惠",
+    "searchButton": "搜索",
+    "clearSearch": "清除搜索",
     "quick": {
       "ai": "AI 工具",
       "lifetime": "买断授权",
@@ -172,6 +176,10 @@
     "visit": "前往商家页面",
     "checkoutNote": "价格以商家结算页为准，链接在新标签页打开。",
     "details": "优惠详情",
+    "validity": "有效期",
+    "until": "截止 {date}",
+    "from": "{date} 起",
+    "offerNotes": "优惠说明",
     "plan": "方案",
     "terms": "条款",
     "eligibility": "适用对象",

@@ -21,7 +21,7 @@ export function EventDates({
 }: {
   event: EventLike;
   now: Date;
-  variant?: keyof typeof PILL;
+  variant?: keyof typeof PILL | 'inline';
   showRange?: boolean;
 }) {
   const t = useTranslations('dates');
@@ -29,7 +29,27 @@ export function EventDates({
   const locale = toLocale(useLocale());
   const range = eventRange(event, now, fmt);
   const phase = eventPhase(event, now);
-  if (!range && event.keyDates.length === 0) return null;
+  if (!(range && showRange) && event.keyDates.length === 0) return null;
+  if (variant === 'inline') {
+    return (
+      <ul className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
+        {range && showRange && <li>{range}</li>}
+        {event.keyDates.map((key) => (
+          <li key={key.date}>
+            {pick(key.label, locale)} {dayLabel(key.date, now, fmt)}
+            {phase !== 'ended' && (
+              <>
+                {' '}
+                <span className="font-medium text-foreground">
+                  · {relativeDay(key.date, now, t)}
+                </span>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return (
     <ul className="flex flex-wrap gap-2">
       {range && showRange && (
