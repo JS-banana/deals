@@ -250,7 +250,8 @@ export function statesOfferEnded(quote: string): boolean {
 const PRICE_ROLES = {
   priceAmount:
     /(?<!\b(?:regular|original|list) )\b(?:now|only|pay|sale price|current price|discounted price|buy(?:\s+once)?\s+for|get(?:\s+(?:it|pro|lifetime|access))?\s+for|black\s+friday(?:\s+price)?|promo(?:\s+price)?|special(?:\s+price)?|deal(?:\s+price)?|lifetime(?:\s+(?:license|access|deal|plan))?|one[- ]time)\b|现价|到手价|活动价|售价|买断价|黑五价/i,
-  originalAmount: /\b(?:regular|original|was|instead of|list price|normally|msrp|rrp)\b|原价|原價/i,
+  originalAmount:
+    /\b(?:regular(?!\s+(?:license|plan|edition|tier)\b)|original|was|instead of|list price|normally|usually|msrp|rrp)\b|原价|原價/i,
   discountAmount: /\b(?:save|saving|savings)\b|立减|省下|节省/i,
 };
 const PRICE_ROLE_BOUNDARY = new RegExp(
@@ -278,6 +279,7 @@ const SYMBOLS: Record<string, string> = {
 };
 const NON_USD_CURRENCY =
   /\b(?:CAD|AUD|NZD|HKD|SGD|EUR|GBP|CNY|JPY|RMB)\b|(?:CA|AU|NZ|HK|SG|MX|C|A)\$|€|£|¥/i;
+const NON_USD_DOLLAR_CURRENCY = /\b(?:CAD|AUD|NZD|HKD|SGD|MXN)\b|(?:CA|AU|NZ|HK|SG|MX|C|A)\$/i;
 const TIMEZONE_PATTERNS: Record<string, RegExp> = {
   UTC: /\b(?:utc|gmt)\b/i,
   'America/Los_Angeles': /\b(?:pacific|pst|pdt|pt)\b|太平洋时间/i,
@@ -321,11 +323,12 @@ const MONTHS = [
 ];
 const ANY_MONTH = `(?:${MONTHS.join('|')})`;
 const ANY_DAY = /\d{1,2}(?:st|nd|rd|th)?/.source;
+const WEEKDAY = '(?:(?:Mon|Tue(?:s)?|Wed(?:nes)?|Thu(?:rs)?|Fri|Sat(?:ur)?|Sun)(?:day)?,?\\s+)?';
 const DATE_FIELDS = ['startsOn', 'endsOn', 'startsAt', 'endsAt'];
 const RANGE_SEPARATOR = /\s*(?:-|–|—|~|to|through|until|至|到)\s*/.source;
 const RANGE_FOLLOWS = new RegExp(`^${RANGE_SEPARATOR}(?=[A-Za-z0-9\\u4e00-\\u9fff])`, 'i');
 const RANGE_PRECEDES = new RegExp(
-  `(?:\\b(?:${ANY_MONTH} ${ANY_DAY}|${ANY_DAY} ${ANY_MONTH})(?:,? \\d{4})?|\\b\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s*月\\s*\\d{1,2}\\s*日)${RANGE_SEPARATOR}$`,
+  `(?:${WEEKDAY}(?:\\b(?:${ANY_MONTH} ${ANY_DAY}|${ANY_DAY} ${ANY_MONTH})(?:,? \\d{4})?|\\b\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s*月\\s*\\d{1,2}\\s*日))${RANGE_SEPARATOR}$`,
   'i',
 );
 
@@ -336,7 +339,7 @@ function dateInQuote(value: string, quote: string, start: boolean) {
     ? /(?:\b(?:starts?|begins?|from|valid|runs?|available|live)\b|开始(?:于)?|自)(?:\s+(?:on|at))?\s*[:：]?\s*$/i
     : /(?:\b(?:ends?|expires?|until|through|thru|to|after|before|by)\b|截止(?:至|于)?|截至|至|到)(?:\s+(?:on|at))?\s*[:：]?\s*$/i;
   const bound = (pattern: string) => {
-    const dates = new RegExp(`(?<![a-z0-9])(?:${pattern})(?![a-z0-9])`, 'gi');
+    const dates = new RegExp(`(?<![a-z0-9])${WEEKDAY}(?:${pattern})(?![a-z0-9])`, 'gi');
     for (const match of quote.matchAll(dates)) {
       const before = quote.slice(0, match.index);
       const after = quote.slice(match.index + match[0].length);
@@ -401,7 +404,7 @@ function supportsBenefit(summary: string, quote: string) {
   return a.length > 0 && a === b;
 }
 
-function supports(field: string, deal: Deal, quote: string, curatedPrice = false) {
+function supports(field: string, deal: Deal, quote: string) {
   switch (field) {
     case 'benefitSummary':
       return !!deal.benefitSummary && supportsBenefit(deal.benefitSummary.zh, quote);
@@ -424,7 +427,7 @@ function supports(field: string, deal: Deal, quote: string, curatedPrice = false
       const dollar = ['USD', 'CAD', 'AUD'].includes(deal.currency);
       const currencyCode = dollar ? `${deal.currency}(?:\\s*\\$)?` : deal.currency;
       const unit = [currencyCode, SYMBOLS[deal.currency]].filter(Boolean).join('|');
-      const allowBareUsd = deal.currency === 'USD' && !NON_USD_CURRENCY.test(quote);
+      const allowBareUsd = deal.currency === 'USD' && !NON_USD_DOLLAR_CURRENCY.test(quote);
       // A single explicit CAD/AUD label can govern both dollar amounts in a pair.
       const qualifiedDollar =
         dollar &&
@@ -442,19 +445,25 @@ function supports(field: string, deal: Deal, quote: string, curatedPrice = false
         const parts = quote.split(/\s*(?:→|->|=>)\s*/);
         if (parts.length === 2) {
           const [beforeText = '', afterText = ''] = parts;
+          const leftAmounts = unitAmounts(effectiveUnit, beforeText);
+          const leftOk =
+            orig !== null &&
+            leftAmounts.length > 0 &&
+            numberAppears(orig, leftAmounts.at(-1)?.[1] ?? leftAmounts.at(-1)?.[2] ?? '');
+          const rightAmounts = unitAmounts(effectiveUnit, afterText);
+          const firstRightClause = afterText.split(/[,;]|(?:\bthen\b|\bafter\b)/i)[0] ?? afterText;
+          const bareRightNum = firstRightClause.match(
+            new RegExp(`(?<![\\d.,])${NUMERAL}(?![\\d.,])`),
+          )?.[0];
           const arrowRightOk =
             sale !== null &&
-            (matchesWithUnit(afterText, sale) ||
-              (!/[€£¥$]|\b[A-Z]{3}\b/.test(afterText) &&
-                !NON_USD_CURRENCY.test(afterText) &&
-                numberAppears(sale, afterText)));
-          return (
-            orig !== null &&
-            sale !== null &&
-            orig > sale &&
-            matchesWithUnit(beforeText, orig) &&
-            arrowRightOk
-          );
+            (rightAmounts.length > 0
+              ? numberAppears(sale, rightAmounts[0]?.[1] ?? rightAmounts[0]?.[2] ?? '')
+              : !/[€£¥$]|\b[A-Z]{3}\b/.test(firstRightClause) &&
+                !NON_USD_CURRENCY.test(firstRightClause) &&
+                bareRightNum !== undefined &&
+                numberAppears(sale, bareRightNum));
+          return orig !== null && sale !== null && orig > sale && leftOk && arrowRightOk;
         }
         if (orig !== null && sale !== null && orig > sale && PROMO_CONTEXT.test(quote)) {
           // A role with a single price takes precedence over the order lost with <del> markup.
@@ -467,28 +476,26 @@ function supports(field: string, deal: Deal, quote: string, curatedPrice = false
           )
             return false;
           const amounts = unitAmounts(effectiveUnit, quote);
-          const [first, second] = amounts;
-          if (
-            amounts.length === 2 &&
-            first &&
-            second &&
-            !quote.slice(first.index + first[0].length, second.index).trim()
-          ) {
+          for (let i = 0; i + 1 < amounts.length; i++) {
+            const first = amounts[i];
+            const second = amounts[i + 1];
+            if (!first || !second) continue;
+            if (quote.slice(first.index + first[0].length, second.index).trim()) continue;
             const left = first[1] ?? first[2] ?? '';
             const right = second[1] ?? second[2] ?? '';
             const label = quote.slice(0, first.index);
-            if (numberAppears(sale, left) && numberAppears(orig, right))
-              return !ORIGINAL_LABEL.test(label);
+            if (numberAppears(sale, left) && numberAppears(orig, right)) {
+              if (!ORIGINAL_LABEL.test(label)) return true;
+              continue;
+            }
             // A promo heading can introduce either order. An explicit sale price labels the first amount.
             const saleLabel = label.match(SALE_LABEL)?.[0];
             const explicitSale =
               saleLabel && (!PROMO_CONTEXT.test(saleLabel) || /price\b/i.test(saleLabel));
-            return numberAppears(orig, left) && numberAppears(sale, right) && !explicitSale;
+            if (numberAppears(orig, left) && numberAppears(sale, right) && !explicitSale) {
+              return true;
+            }
           }
-        }
-        // Curated rows often give one currency-qualified price without a merchant role label.
-        if (curatedPrice && !Object.values(PRICE_ROLES).some((role) => role.test(quote))) {
-          return matchesWithUnit(quote, value);
         }
       }
       // Keep adjacent amounts with their own role: "regular USD 50, now USD 29".
@@ -542,15 +549,10 @@ export function hasBenefitEvidence(deal: Deal, evidence: Evidence[]): boolean {
 }
 
 /** Re-read sensitive values in context, including text omitted by an ellipsis. */
-function sourceSupports(
-  deal: Deal,
-  evidence: Evidence,
-  text: string,
-  curatedPrice = false,
-): boolean {
+function sourceSupports(deal: Deal, evidence: Evidence, text: string): boolean {
   const { field } = evidence;
   const quote = fold(evidence.quote);
-  if (!supports(field, deal, quote, curatedPrice)) return false;
+  if (!supports(field, deal, quote)) return false;
   const date = DATE_FIELDS.includes(field);
   const price = field === 'priceAmount' || field === 'originalAmount';
   const parts = quote.split(ELLIPSIS);
@@ -582,43 +584,9 @@ function sourceSupports(
         );
       if (qualifier) excerpt = qualifier[0] + excerpt;
     }
-    if (supports(field, deal, excerpt, curatedPrice)) return true;
+    if (supports(field, deal, excerpt)) return true;
   }
   return false;
-}
-
-const CURATED_GAP_FIELDS = new Set(['priceAmount', 'originalAmount', 'code', 'startsOn', 'endsOn']);
-
-/** A curated row may fill a missing commercial fact only with a non-contradictory supporting quote. */
-export function supportsCuratedGaps(
-  deal: Deal,
-  gaps: string[],
-  evidence: Evidence[],
-  merchant: Source,
-  upstreamText: string,
-) {
-  const page = fold(merchant.text);
-  const upstream = fold(upstreamText);
-  const textFor = (url: string) => (url === merchant.url ? page : upstream);
-  return gaps.every((field) => {
-    if (!CURATED_GAP_FIELDS.has(field)) return true;
-    const claims = evidence.filter((e) => e.field === field);
-    const hasSupport = (list: Evidence[]) =>
-      list.some((e) => sourceSupports(deal, { ...e, field }, textFor(e.url), true));
-    if (!claims.length) return hasSupport(evidence);
-    if (hasSupport(claims)) return true;
-    const unlabelledAmount =
-      (field === 'priceAmount' || field === 'originalAmount') &&
-      claims.every((e) => {
-        const q = fold(e.quote);
-        return (
-          !Object.values(PRICE_ROLES).some((role) => role.test(q)) &&
-          !/→|->|=>/.test(q) &&
-          !(deal.currency === 'USD' && NON_USD_CURRENCY.test(q))
-        );
-      });
-    return unlabelledAmount && hasSupport(evidence);
-  });
 }
 
 /** Verify each claim against the exact merchant snapshot, even when replaying stored evidence. */
