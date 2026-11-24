@@ -11,10 +11,12 @@ import { AUDIT_SYSTEM, auditUser } from './prompts.ts';
 import { type Config, type Ctx, today } from './runtime.ts';
 import { errorMessage } from './util.ts';
 import {
+  dropRateAcceptable,
   hasBenefitEvidence,
   missingMerchantEvidence,
   statesOfferEnded,
   stripUnverified,
+  supportsCuratedGaps,
   verifyEvidence,
 } from './verify.ts';
 
@@ -68,21 +70,31 @@ export function decideProposal(
   if (!audit)
     return { action: 'manual_review', score: null, summary: '审校模型不可用', issues: [] };
   const score = Math.min(audit.score, audit.dims.accuracy, audit.dims.billingAndTerms);
+  const { dropped, notes, sourceTrust, merchantUrl, upstreamText } = candidate.auditInputs;
+  const merchant = { url: merchantUrl, text: pageText };
   const gaps = missingMerchantEvidence(
     candidate.payload.deal,
     candidate.changes,
     candidate.evidence,
-    { url: candidate.auditInputs.merchantUrl, text: pageText },
+    merchant,
   );
-  const { dropped, notes, sourceTrust, merchantUrl, upstreamText } = candidate.auditInputs;
   const issues = [...audit.issues, ...notes];
   if (gaps.length) issues.push(`缺少对应商家原文：${gaps.join('、')}`);
-  if (dropped) issues.push(`${dropped} 条引文未通过原文核验`);
-  const clean = !dropped && !notes.length;
   const curated = sourceTrust === 'curated';
   const curatedCreate = curated && candidate.changes.length === 0;
+  const tier = curatedCreate
+    ? gaps.length
+      ? 'curated_community'
+      : 'curated_verified'
+    : 'standard';
+  const acceptableDrops = dropRateAcceptable(candidate.evidence.length, dropped, tier);
+  if (dropped > 0 && !acceptableDrops) issues.push(`${dropped} 条引文未通过原文核验`);
   const rejected = audit.verdict === 'reject' && score < policy.rejectBelow;
-  if (clean && (curated ? rejected : !gaps.length && (rejected || audit.dims.relevance < 50))) {
+  if (
+    !dropped &&
+    !notes.length &&
+    (curated ? rejected : !gaps.length && (rejected || audit.dims.relevance < 50))
+  ) {
     return { action: 'auto_reject', score, issues, summary: audit.summary };
   }
   const ended =
@@ -90,35 +102,34 @@ export function decideProposal(
     pageText.split('\n').some((line) => line.length <= 240 && statesOfferEnded(line));
   if (ended) issues.push('商家页明确优惠已结束');
   if (
-    clean &&
+    acceptableDrops &&
+    !notes.length &&
     !ended &&
     audit.verdict === 'approve' &&
     score >= policy.minScore &&
     candidate.confidence >= 0.8 &&
     !audit.issues.length
   ) {
-    if (!gaps.length)
-      return { action: 'auto_approve', verified: true, score, issues: [], summary: audit.summary };
-    if (curatedCreate && candidate.evidence.length) {
-      const deal = candidate.payload.deal;
-      const combinedText = [pageText, upstreamText].filter(Boolean).join('\n');
-      const quotes = verifyEvidence(candidate.evidence, [
-        { url: merchantUrl, text: pageText },
-        { url: deal.sourceUrl ?? merchantUrl, text: upstreamText },
-      ]);
-      if (
-        !stripUnverified(deal, combinedText).notes.length &&
-        !quotes.dropped &&
-        hasBenefitEvidence(deal, quotes.kept)
-      ) {
-        return {
-          action: 'auto_approve',
-          verified: false,
-          score,
-          issues: [],
-          summary: audit.summary,
-        };
-      }
+    const deal = candidate.payload.deal;
+    const upstream = { url: deal.sourceUrl ?? merchantUrl, text: upstreamText };
+    const quotes = verifyEvidence(candidate.evidence, [merchant, upstream]);
+    if (quotes.dropped) {
+      issues.push('留存引文与审校原文不符');
+    } else if (
+      !gaps.length ||
+      (curatedCreate &&
+        quotes.kept.length &&
+        !stripUnverified(deal, [pageText, upstreamText].join('\n')).notes.length &&
+        hasBenefitEvidence(deal, quotes.kept) &&
+        supportsCuratedGaps(deal, gaps, quotes.kept, merchant, upstreamText))
+    ) {
+      return {
+        action: 'auto_approve',
+        verified: !gaps.length,
+        score,
+        issues: [],
+        summary: audit.summary,
+      };
     }
   }
   return { action: 'manual_review', score, issues, summary: audit.summary };

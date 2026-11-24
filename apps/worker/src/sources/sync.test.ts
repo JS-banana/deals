@@ -18,7 +18,7 @@ import {
   syncState,
 } from '@deals/db';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { offerKeyFor } from '../extract.ts';
+import { extractCandidate, offerKeyFor } from '../extract.ts';
 import type { Llm } from '../llm.ts';
 import { pruneSnapshots } from '../prune.ts';
 import { recheck } from '../recheck.ts';
@@ -521,6 +521,88 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
     ).rejects.toBe(rollback);
   });
 
+  it.each([
+    { curated: true, dropped: 1, expected: 0.84 },
+    { curated: false, dropped: 1, expected: 0.74 },
+    { curated: true, dropped: 5, expected: 0.34 },
+  ])(
+    'scores a curated=$curated extraction with $dropped dropped quotes',
+    async ({ curated, dropped, expected }) => {
+      const rollback = new Error('rollback extraction confidence fixture');
+      await expect(
+        db.transaction(async (tx) => {
+          const url = `https://confidence.${host}/black-friday`;
+          const evidence = [
+            { field: 'priceAmount', quote: 'Buy once for $19' },
+            ...[
+              'Black Friday offer',
+              'Download today',
+              'Pro license',
+              'Online checkout',
+              'Instant access',
+            ].map((quote) => ({ field: 'terms', quote })),
+          ];
+          const raw = evidence.map((e) => e.quote).join('. ');
+          const testCtx: Ctx = {
+            ...ctx,
+            db: Object.assign(tx, { $client: db.$client }),
+            fetcher: {
+              ...ctx.fetcher,
+              page: async (url) => ({ ...(await ctx.fetcher.page(url)), text: raw }),
+            },
+            extractLlm: {
+              json: async (request) =>
+                request.parse({
+                  product: { category: 'developer', summary: '开发工具' },
+                  deal: {
+                    plan: '专业版',
+                    billing: 'other',
+                    terms: '在线购买',
+                    priceAmount: 19,
+                    currency: 'USD',
+                  },
+                  evidence: [
+                    ...evidence,
+                    ...Array.from({ length: dropped }, (_, i) => ({
+                      field: 'terms',
+                      quote: `Invented quote ${i}`,
+                    })),
+                  ],
+                  confidence: 0.84,
+                }),
+            },
+          };
+          const catalog = await loadCatalog(testCtx);
+          catalog.events = catalog.events.filter((event) => event.slug === prefix);
+          const name = `${prefix}-confidence`;
+          const outcome = await extractCandidate(testCtx, {
+            curated,
+            catalog,
+            entry: {
+              key: entryKey(name, url),
+              name,
+              url,
+              raw,
+              description: '',
+              offer: raw,
+              section: 'Developer',
+              line: 1,
+            },
+          });
+          expect(outcome).toEqual({ status: 'proposal', filed: true });
+          const [proposal] = await tx
+            .select()
+            .from(proposals)
+            .where(sql`payload->'product'->>'slug' = ${name}`);
+          expect(proposal?.confidence).toBe(expected);
+          expect(proposal?.auditInputs?.dropped).toBe(dropped);
+          expect(proposal?.auditInputs?.dropPenaltyWaived ?? false).toBe(curated && dropped === 1);
+          throw rollback;
+        }),
+      ).rejects.toBe(rollback);
+    },
+  );
+
   it('watches the last ended offer on its official source page and renews its rank in the same event', async () => {
     const rollback = new Error('rollback renewal fixture');
     await expect(
@@ -768,14 +850,44 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
     ).rejects.toBe(rollback);
   });
 
-  it('re-audits legacy curated pending proposals and auto-approves verified:false', async () => {
+  it.each([
+    { scenario: 'removes the legacy merchant note', dropped: 0, confidence: 0.45, expected: 0.8 },
+    {
+      scenario: 'restores the penalty for two dropped quotes',
+      dropped: 2,
+      confidence: 0.72,
+      expected: 0.92,
+    },
+    { scenario: 'restores a low score only once', dropped: 1, confidence: 0.4, expected: 0.5 },
+    {
+      scenario: 'preserves an already waived penalty',
+      dropped: 2,
+      confidence: 0.72,
+      expected: 0.72,
+      waived: true,
+    },
+  ])('re-audits a pending curated proposal and $scenario', async (scenario) => {
+    const { dropped, confidence, expected, waived } = scenario;
     const rollback = new Error('rollback reviewPending fixture');
     await expect(
       db.transaction(async (tx) => {
         const slug = `${prefix}-legacy-curated`;
         const merchantUrl = `https://legacy.${host}/deal`;
         const sourceRef = `https://github.com/${UPSTREAM_REPO}/blob/abc/README.md#L42`;
-        const quote = '50% off with code LEGACY50';
+        const evidence = (
+          [
+            ['discountPercent', '50% off'],
+            ['code', 'Use code LEGACY50'],
+            ['product.name', slug],
+            ['product.summary', 'Developer productivity tools'],
+            ['plan', 'Professional plan'],
+            ['terms', 'Black Friday offer'],
+            ['howToClaim', 'Enter the coupon at checkout'],
+            ['eligibility', 'Available worldwide'],
+          ] as const
+        )
+          .slice(0, dropped ? 8 : 2)
+          .map(([field, quote]) => ({ field, quote, url: sourceRef }));
         const deal = dealSchema.parse({
           plan: { zh: '专业版', en: 'Pro' },
           priceAmount: null,
@@ -823,16 +935,15 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
             event: prefix,
             deal,
           },
-          evidence: [
-            { field: 'discountPercent', url: sourceRef, quote },
-            { field: 'code', url: sourceRef, quote },
-          ],
-          confidence: 0.45,
+          evidence,
+          confidence,
           auditInputs: {
             merchantUrl,
-            upstreamText: `- [${slug}](${merchantUrl}) - ${quote}`,
-            dropped: 0,
-            notes: ['商家域名尚未经独立确认'],
+            upstreamText: evidence.map((e) => e.quote).join('\n'),
+            dropped,
+            notes: dropped ? [] : ['商家域名尚未经独立确认'],
+            ...(dropped ? { sourceTrust: 'curated' as const } : {}),
+            ...(waived ? { dropPenaltyWaived: true } : {}),
           },
           reason: 'legacy curated fixture',
           sourceRef,
@@ -844,21 +955,37 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
           ...ctx,
           db: Object.assign(tx, { $client: db.$client }),
           stats: {},
-          config: { ...ctx.config, auto: { ...ctx.config.auto, create: true } },
         };
+        const readProposal = async () =>
+          (await tx.select().from(proposals).where(eq(proposals.id, id)))[0];
         await reviewPending(testCtx);
-
-        const [updated] = await tx.select().from(proposals).where(eq(proposals.id, id));
-        expect(updated).toMatchObject({
-          status: 'approved',
-          reviewedBy: 'ai',
-          confidence: 0.8,
-          auditInputs: { sourceTrust: 'curated', notes: [] },
-          shadowDecision: { action: 'auto_approve', verified: false },
+        expect(await readProposal()).toMatchObject({
+          status: 'pending',
+          confidence: expected,
+          auditInputs: { sourceTrust: 'curated', dropped, notes: [] },
         });
-        expect(await listDeals(testCtx.db, { productSlug: slug })).toMatchObject([
-          { verified: false },
-        ]);
+
+        await reviewPending({
+          ...testCtx,
+          config: { ...ctx.config, auto: { ...ctx.config.auto, create: true } },
+        });
+        const updated = await readProposal();
+        expect(updated?.confidence).toBe(expected);
+        const published = await listDeals(testCtx.db, { productSlug: slug });
+        if (expected >= 0.8) {
+          expect(updated).toMatchObject({
+            status: 'approved',
+            reviewedBy: 'ai',
+            shadowDecision: { action: 'auto_approve', verified: false, issues: [] },
+          });
+          expect(published).toMatchObject([{ verified: false }]);
+        } else {
+          expect(updated).toMatchObject({
+            status: 'pending',
+            shadowDecision: { action: 'manual_review' },
+          });
+          expect(published).toHaveLength(0);
+        }
         throw rollback;
       }),
     ).rejects.toBe(rollback);

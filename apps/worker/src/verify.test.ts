@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkDates,
   codeAppears,
+  dropRateAcceptable,
   mergeVolatile,
   numberAppears,
   pickEvent,
@@ -38,12 +39,50 @@ describe('verifyEvidence', () => {
       [
         { field: 'priceAmount', quote: 'Only $19, a steal' },
         { field: 'code', quote: 'BF' },
-        { field: 'x', quote: 'code bf2026 is prefilled' },
+        { field: 'code', quote: 'Code INVENTED is prefilled' },
+        { field: 'code', quote: '  code bf2026 is prefilled  ' },
       ],
       [page, upstream],
     );
-    expect(kept).toEqual([]);
+    expect(kept).toEqual([{ field: 'code', quote: 'code bf2026 is prefilled', url: page.url }]);
     expect(dropped).toBe(3);
+  });
+
+  it('requires substantial, ordered, non-overlapping ellipsis fragments from the same source', () => {
+    const quotes = [
+      'black friday … prefilled ... solo $1,194',
+      'prefilled ... black friday',
+      'Black Friday ... never written',
+      'Black Friday ... bf',
+      'Black Friday ... Nov 18',
+      'prefilled ... prefilled',
+      '... prefilled ...',
+      '...',
+    ];
+    const result = verifyEvidence(
+      quotes.map((quote) => ({ field: 'terms', quote })),
+      [page, upstream],
+    );
+    expect(result.kept).toEqual([{ field: 'terms', quote: quotes[0], url: page.url }]);
+    expect(result.dropped).toBe(quotes.length - 1);
+  });
+});
+
+describe('dropRateAcceptable', () => {
+  it.each([
+    // kept, dropped, standard, merchant-verified curated, community-sourced curated
+    [0, 0, true, true, true],
+    [5, 1, false, false, false],
+    [6, 1, false, true, true],
+    [6, 2, false, true, true],
+    [6, 3, false, false, true],
+    [7, 4, false, false, false],
+    [8, 4, false, false, true],
+    [20, 5, false, false, false],
+  ] as const)('%i kept and %i dropped', (kept, dropped, standard, verified, community) => {
+    expect(dropRateAcceptable(kept, dropped, 'standard')).toBe(standard);
+    expect(dropRateAcceptable(kept, dropped, 'curated_verified')).toBe(verified);
+    expect(dropRateAcceptable(kept, dropped, 'curated_community')).toBe(community);
   });
 });
 

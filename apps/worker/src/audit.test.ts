@@ -1,3 +1,4 @@
+import type { Deal } from '@deals/core';
 import type { Evidence } from '@deals/db';
 import { describe, expect, it } from 'vitest';
 import { type AuditCandidate, type AuditResult, decideProposal, shouldExecute } from './audit.ts';
@@ -253,6 +254,51 @@ describe('curated approvals', () => {
     expect(decide(audit, curated)).toMatchObject({ action: 'auto_approve', verified: true });
   });
 
+  it.each([
+    { kept: 10, dropped: 1, merchantOnly: true, approve: true },
+    { kept: 8, dropped: 4, merchantOnly: false, approve: true },
+    { kept: 8, dropped: 4, merchantOnly: true, approve: false },
+    { kept: 4, dropped: 3, merchantOnly: false, approve: false },
+    { kept: 10, dropped: 5, merchantOnly: false, approve: false },
+  ])(
+    'checks $kept kept/$dropped dropped with merchantOnly=$merchantOnly',
+    ({ kept, dropped, merchantOnly, approve }) => {
+      const extra = ['Pro plan', 'Redeem at checkout', 'Online purchase', 'Instant access'];
+      const text = [page, ...extra].join('\n');
+      const url = merchantOnly ? merchant : upstream;
+      const item = {
+        ...curated,
+        evidence: [
+          ...evidence.map((e) => ({ ...e, url })),
+          ...extra.map((quote) => ({ field: 'terms', url, quote })),
+        ].slice(0, kept),
+        auditInputs: { ...curated.auditInputs, dropped, upstreamText: merchantOnly ? '' : text },
+      };
+      const source = merchantOnly ? text : merchantText;
+      const decision = decide(audit, item, source);
+      if (approve) {
+        expect(decision).toMatchObject({
+          action: 'auto_approve',
+          verified: merchantOnly,
+          issues: [],
+        });
+        expect(decide({ ...audit, verdict: 'reject', score: 45 }, item, source).action).toBe(
+          'manual_review',
+        );
+        const noted = { ...item, auditInputs: { ...item.auditInputs, notes: ['条款存疑'] } };
+        expect(decide(audit, noted, source)).toMatchObject({ action: 'manual_review' });
+        expect(decide(audit, noted, source).issues).not.toContain(
+          `${dropped} 条引文未通过原文核验`,
+        );
+      } else {
+        expect(decision).toMatchObject({
+          action: 'manual_review',
+          issues: expect.arrayContaining([`${dropped} 条引文未通过原文核验`]),
+        });
+      }
+    },
+  );
+
   it('requires merchant evidence for ordinary community sources and curated updates', () => {
     const { upstreamText } = curatedRow.auditInputs;
     expect(
@@ -271,13 +317,135 @@ describe('curated approvals', () => {
     ).toBe('manual_review');
   });
 
-  it('holds curated approvals with an ended page, dropped or missing quotes, or unsupported amounts and benefits', () => {
+  it.each([
+    ['priceAmount', 'Regular price $19. Sale price $12.'],
+    ['originalAmount', 'Black Friday $19 → $29'],
+    ['priceAmount', 'Black Friday CAD $19'],
+    ['endsOn', 'Ends December 1, 2025'],
+    ['code', 'Use code Save20'],
+  ])(
+    'holds contradictory %s evidence even when the curated drop rate is acceptable',
+    (field, quote) => {
+      for (const url of [upstream, merchant]) {
+        const claims = curatedRow.evidence.map((e) =>
+          e.field === field ? { field, quote, url } : e,
+        );
+        const item = {
+          ...curatedRow,
+          evidence: claims,
+          auditInputs: {
+            ...curatedRow.auditInputs,
+            dropped: 1,
+            upstreamText: claims
+              .filter((e) => e.url === upstream)
+              .map((e) => e.quote)
+              .join('\n'),
+          },
+        };
+        expect(decide(audit, item, url === merchant ? quote : merchantText).action).toBe(
+          'manual_review',
+        );
+      }
+    },
+  );
+
+  it('keeps an unlabelled currency-qualified price on a curated list eligible', () => {
+    const claims = curatedRow.evidence.map((e) =>
+      e.field === 'priceAmount' ? { ...e, quote: 'Pro $19' } : e,
+    );
+    const item = {
+      ...curatedRow,
+      evidence: claims,
+      auditInputs: {
+        ...curatedRow.auditInputs,
+        dropped: 1,
+        upstreamText: claims.map((e) => e.quote).join('\n'),
+      },
+    };
+    expect(decide(audit, item, merchantText)).toMatchObject({
+      action: 'auto_approve',
+      verified: false,
+    });
+  });
+
+  it('allows curated proposals with endsAt timestamps and sibling-supported adjacent strikethrough prices', () => {
+    const timed = {
+      ...curatedRow,
+      payload: {
+        ...curatedRow.payload,
+        deal: { ...curatedRow.payload.deal, endsAt: '2026-12-01T23:59:00-08:00' },
+      },
+    };
+    expect(decide(audit, timed, merchantText)).toMatchObject({
+      action: 'auto_approve',
+      verified: false,
+      issues: [],
+    });
+
+    const mopupClaims: Evidence[] = [
+      { field: 'plan', quote: 'Black Friday · Half price $9.99 $19.99', url: merchant },
+      { field: 'priceAmount', quote: 'Buy once for $9.99', url: merchant },
+      { field: 'originalAmount', quote: '$9.99 $19.99', url: merchant },
+      { field: 'discountPercent', quote: '**50% OFF** lifetime', url: upstream },
+      { field: 'code', quote: 'code BF2026 applied automatically', url: upstream },
+      { field: 'endsOn', quote: 'Back to $19.99 after November 30.', url: merchant },
+      { field: 'terms', quote: 'One payment, not a subscription.', url: merchant },
+      { field: 'billing', quote: 'One payment, not a subscription.', url: merchant },
+      { field: 'oneTime', quote: 'One payment, not a subscription.', url: merchant },
+      { field: 'noCode', quote: 'code BF2026 applied automatically', url: upstream },
+    ];
+    const mopupMerchant = mopupClaims
+      .filter((e) => e.url === merchant)
+      .map((e) => e.quote)
+      .join('\n');
+    const mopupUpstream = mopupClaims
+      .filter((e) => e.url === upstream)
+      .map((e) => e.quote)
+      .join('\n');
+    const mopup = {
+      ...curated,
+      evidence: mopupClaims,
+      auditInputs: { ...curated.auditInputs, dropped: 1, upstreamText: mopupUpstream },
+      payload: {
+        ...curated.payload,
+        deal: {
+          ...curated.payload.deal,
+          priceAmount: 9.99,
+          originalAmount: 19.99,
+          discountPercent: 50,
+          discountAmount: null,
+          code: 'BF2026',
+          noCode: true,
+          endsOn: '2026-11-30',
+          billing: 'one_time' as const,
+          oneTime: true,
+        },
+      },
+    };
+    expect(decide(audit, mopup, mopupMerchant)).toMatchObject({
+      action: 'auto_approve',
+      issues: [],
+    });
+  });
+
+  it('rechecks extra stored quotes before counting them toward merchant verification', () => {
+    const item = {
+      ...curated,
+      evidence: [
+        ...curated.evidence,
+        { field: 'terms', quote: 'Invented extra terms', url: merchant },
+      ],
+      auditInputs: { ...curated.auditInputs, dropped: 1 },
+    };
+    expect(decide(audit, item).action).toBe('manual_review');
+  });
+
+  it('holds curated approvals with an ended page, missing quotes, or unsupported amounts and benefits', () => {
     expect(decide(audit, curatedRow, `${merchantText}\nThis offer has ended.`).action).toBe(
       'manual_review',
     );
     expect(decide(audit, curated, `${page}\nThis offer has ended.`).action).toBe('manual_review');
     for (const item of [
-      { ...curatedRow, auditInputs: { ...curatedRow.auditInputs, dropped: 1 } },
       { ...curatedRow, evidence: [] },
       {
         ...curatedRow,
@@ -372,6 +540,112 @@ it('includes JSON in every json_object system prompt and documents default-false
 });
 
 describe('refined merchant quote matchers', () => {
+  function gapsForQuote(fields: Partial<Deal>, quote: string, source = quote) {
+    const item = {
+      ...candidate,
+      payload: { ...candidate.payload, deal: { ...candidate.payload.deal, ...fields } },
+      evidence: [
+        ...evidence.filter((e) => !Object.hasOwn(fields, e.field)),
+        ...Object.keys(fields).map((field) => ({ field, quote, url: merchant })),
+      ],
+    };
+    return merchantGaps(item, `${page}\n${source}`);
+  }
+
+  it.each(['Buy once for $9.99', 'Get lifetime for $9.99', 'Promo price $9.99', '黑五价 $9.99'])(
+    'accepts a merchant sale price in “%s”',
+    (quote) => {
+      expect(gapsForQuote({ priceAmount: 9.99 }, quote)).toEqual([]);
+    },
+  );
+
+  const prices = { priceAmount: 9.99, originalAmount: 19.99 };
+  it('checks the source text behind changes of case, omissions and shortened quotes', () => {
+    expect(gapsForQuote({ code: 'SAVE20' }, 'Code SAVE20', 'Code save20')).toEqual(['code']);
+    expect(
+      gapsForQuote({ priceAmount: 19 }, 'Sale price … $19', 'Sale price $12. Regular price $19'),
+    ).toEqual(['priceAmount']);
+    expect(
+      gapsForQuote({ priceAmount: 19 }, 'Sale price … $19', 'Sale price for Pro is $19'),
+    ).toEqual([]);
+    expect(gapsForQuote({ priceAmount: 19 }, 'Buy once for $19', 'Buy once for $199')).toEqual([
+      'priceAmount',
+    ]);
+    expect(
+      gapsForQuote({ endsOn: '2026-11-30' }, 'until November 30', 'until November 30, 2025'),
+    ).toEqual(['endsOn']);
+  });
+  it.each(['Regular lifetime price $19', 'Regular one-time price $19'])(
+    'retains the regular role in “%s”',
+    (quote) => {
+      expect(gapsForQuote({ priceAmount: 19 }, quote)).toEqual(['priceAmount']);
+    },
+  );
+  it.each(['Black Friday · Half price $9.99 $19.99', 'Half price $19.99 $9.99'])(
+    'recovers both adjacent prices in “%s”',
+    (quote) => {
+      expect(gapsForQuote(prices, quote)).toEqual([]);
+    },
+  );
+  it.each([
+    'Prices $9.99 $19.99',
+    'Sale CAD $19.99 $9.99',
+    'Half price $9.99 19.99',
+    'Regular price $9.99. Sale price $19.99.',
+    'Black Friday $9.99 → $19.99',
+    'Sale price $9.99 -> Regular price $19.99',
+    'Black Friday: Regular price $9.99 $19.99',
+    'Sale price $19.99 $9.99',
+    'Black Friday CAD $19.99 → $9.99',
+    'Black Friday USD $19.99 → CAD $9.99',
+    'Half price $9.99 per seat, other plan $19.99',
+  ])('holds unbound, contradictory, or foreign pairs in “%s”', (quote) => {
+    expect(gapsForQuote(prices, quote)).toEqual(['priceAmount', 'originalAmount']);
+  });
+
+  it.each([
+    ['Nov 24 - Dec 1, 2026', '2026-11-24', '2026-12-01'],
+    ['November 24–December 1', '2026-11-24', '2026-12-01'],
+    ['Nov 18-30, 2026', '2026-11-18', '2026-11-30'],
+    ['11月24日至12月1日', '2026-11-24', '2026-12-01'],
+    ['Nov 18th ~ Nov 30th', '2026-11-18', '2026-11-30'],
+  ])('binds both endpoints of “%s”', (quote, startsOn, endsOn) => {
+    expect(gapsForQuote({ startsOn, endsOn }, quote)).toEqual([]);
+    expect(gapsForQuote({ startsOn: endsOn, endsOn: startsOn }, quote)).toEqual([
+      'startsOn',
+      'endsOn',
+    ]);
+  });
+  it.each([
+    'Back to $19.99 after November 30.',
+    'until November 30',
+    'Ends Nov 30th',
+    'Expires on November 30th, 2026',
+    '30 Nov 2026 ends',
+    '截止至 11 月 30 日',
+    '截至2026年11月30日',
+    'Founded November 30. Offer ends November 30.',
+  ])('binds a dated or yearless deadline in “%s”', (quote) => {
+    expect(gapsForQuote({ endsOn: '2026-11-30' }, quote)).toEqual([]);
+  });
+  it.each([
+    'Founded November 30, 2026',
+    'until November 30, 2025',
+    'In 2026, previously valid until November 30',
+    'until November 30, 2025. Updated in 2026.',
+    'Dec 18-30, 2026',
+    'Nov 18-30, 2025',
+    '截至2025年11月30日',
+  ])('holds an unrelated or incorrect deadline in “%s”', (quote) => {
+    expect(gapsForQuote({ endsOn: '2026-11-30' }, quote)).toEqual(['endsOn']);
+  });
+  it('requires a start role for a standalone date and the full instant for a timed deadline', () => {
+    expect(gapsForQuote({ startsOn: '2026-11-24' }, 'Updated Nov 24')).toEqual(['startsOn']);
+    expect(gapsForQuote({ endsAt: '2026-11-30T00:00:00Z' }, 'until November 30')).toEqual([
+      'endsAt',
+    ]);
+  });
+
   it('accepts natural timezone phrases while rejecting unrelated zones', () => {
     const quote = 'ends Dec 1 at 11:59 pm Pacific';
     const item = {

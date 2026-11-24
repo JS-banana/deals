@@ -153,6 +153,8 @@ export interface AuditInputs {
   merchantUrl: string;
   upstreamText: string;
   dropped: number;
+  /** The stored confidence already excludes the curated quote-drop penalty. */
+  dropPenaltyWaived?: boolean;
   notes: string[];
   sourceTrust?: 'curated';
 }
