@@ -1,6 +1,7 @@
 import { approveProposal, fileProposal, rejectProposal } from '@deals/db';
 import { type AuditCandidate, auditProposal, decideProposal, shouldExecute } from './audit.ts';
 import type { Ctx } from './runtime.ts';
+import { translatePayload } from './translate.ts';
 import { bump } from './util.ts';
 
 type Submission = AuditCandidate & {
@@ -26,10 +27,16 @@ export async function reviewProposal(
   bump(ctx.stats, `shadow:${decision.action}`);
   if (ctx.dryRun) return true;
   if (!proposal.snapshotId) throw new Error('proposal requires a stored merchant snapshot');
+  const execute = shouldExecute(proposal.kind, decision, ctx.config.auto);
+  let payload = proposal.payload;
+  if (execute && proposal.kind === 'create' && decision.action === 'auto_approve') {
+    const translated = await translatePayload(ctx, payload.product, payload.deal);
+    payload = { ...payload, product: translated.product, deal: translated.deal };
+  }
   const result = await ctx.db.transaction(async (tx) => {
-    const id = await fileProposal(tx, { ...proposal, shadowDecision: decision });
+    const id = await fileProposal(tx, { ...proposal, payload, shadowDecision: decision });
     if (id === null) return null;
-    if (!shouldExecute(proposal.kind, decision, ctx.config.auto)) return 'pendingReview';
+    if (!execute) return 'pendingReview';
     if (decision.action === 'auto_reject') {
       if (!(await rejectProposal(tx, id, decision.summary, 'ai')))
         throw new Error('proposal rejection failed');

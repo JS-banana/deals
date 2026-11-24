@@ -183,6 +183,7 @@ async function runGroups(
   ctx: Ctx,
   groups: Group[],
   onOutcome: (group: Group, outcome: Outcome) => Promise<void>,
+  review = ctx.config.translateReview,
 ) {
   const byId = new Map(groups.map((g) => [g.source.id, g]));
   for (let i = 0; i < groups.length && !ctx.signal.aborted; i += CHUNK) {
@@ -193,6 +194,7 @@ async function runGroups(
         ctx.stats,
         ctx.signal,
         chunk.map((g) => g.source),
+        { review },
       );
       for (const outcome of outcomes) {
         const g = byId.get(outcome.id);
@@ -399,9 +401,14 @@ export const translateEval: Job = async (ctx) => {
   ctx.log(
     `evaluating ${groups.length} of ${distinct.length} distinct texts with ${ctx.config.translate.model}`,
   );
-  await runGroups(ctx, groups, async (g, outcome) => {
-    outcomes.push({ group: g, outcome });
-  });
+  await runGroups(
+    ctx,
+    groups,
+    async (g, outcome) => {
+      outcomes.push({ group: g, outcome });
+    },
+    true,
+  );
   outcomes.sort((a, b) => a.group.source.zh.length - b.group.source.zh.length);
 
   for (const { group: g, outcome: o } of outcomes) {
