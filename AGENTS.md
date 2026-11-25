@@ -9,9 +9,9 @@
 - `apps/worker`：可配置的 GitHub、RSS 和社区来源、线索初筛、AI 抽取、规则核验、独立 AI 审校、翻译记忆与质量流水线、图标下载、IndexNow 与定时调度。
 - `apps/web`：Next.js 16 App Router 公开站点（`next-intl` 中英双语）、`/admin` 审核与审计后台、SEO/RSS/Sitemap。修改本目录前请务必阅读 `apps/web/AGENTS.md`。
 
-## 当前实施方案引导
+## 核心架构约定
 
-当前项目的阶段性演进方案已沉淀在 [`docs/improvement-plan.md`](docs/improvement-plan.md)，执行新任务或推进改造时请按文档中的顺序与约束落实：
+本仓库当前已落地的关键架构与行为约束如下：
 
 1. Worker 的每一跳商家访问都绑定已校验公网地址，独立审校、字段核验和影子回放适用于所有来源。
 2. 后台入口与 Server Actions 分别鉴权。公开读缓存 60 秒，后台写入刷新标签。清理快照必须保留最新和已引用的证据。

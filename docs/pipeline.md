@@ -58,7 +58,7 @@ Worker 通过兼容 OpenAI 的 `/chat/completions` 接口调用模型（支持�
 - **英文翻译**：可选配置 `TRANSLATE_BASE_URL`、`TRANSLATE_API_KEY`、`TRANSLATE_MODEL`（可选 `TRANSLATE_EXTRA_BODY`）。三项同时设置才生效，否则回退到 `LLM_*`。
 - **OpenAI 接口适配**：检测到 `api.openai.com` 时，会自动使用 `max_completion_tokens` 和 `reasoning_effort`，不发送 `temperature`。
 
-独立审校、影子模式的开关与运行命令见[实施方案](improvement-plan.md)。
+- **独立审校与自动审批**：可通过 `REVIEW_BASE_URL`、`REVIEW_API_KEY`、`REVIEW_MODEL`（可选 `REVIEW_EXTRA_BODY`）配置独立审校模型，缺省时复用翻译模型配置；自动新增、自动更新、自动拒绝分别由 `AUTO_APPROVE_CREATE`、`AUTO_APPROVE_UPDATE`、`AUTO_REJECT_ENABLED` 控制（默认均为 `false`，仅记录影子拟判）。
 
 ## 翻译机制
 
