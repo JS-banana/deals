@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const LOCALES = ['zh', 'en'] as const;
+export const LOCALES = ['en', 'zh'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 /** Editorial text. `zh` is the source of truth; `en` may be empty until translated. */

@@ -154,7 +154,7 @@ export const notifyOffers: Job = async (ctx) => {
           .limit(ctx.limit ?? 20);
         if (!ctx.config.siteUrl) throw new Error('SITE_URL is required for group offers');
         for (const item of rows) {
-          const link = new URL(`/p/${item.slug}`, ctx.config.siteUrl);
+          const link = new URL(`/zh/p/${item.slug}`, ctx.config.siteUrl);
           link.searchParams.set('offer', String(item.deal.id));
           const message = [
             item.product,

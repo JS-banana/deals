@@ -6,7 +6,7 @@
 
 Browse Black Friday, Cyber Monday, and year-round software deals. See what you pay up front, what renewal costs, and whether existing customers qualify.
 
-[Browse deals](https://deals.laifuyou.com/en) · [RSS feed](https://deals.laifuyou.com/en/feed.xml) · [中文 README](README.zh.md)
+[Browse deals](https://deals.laifuyou.com) · [RSS feed](https://deals.laifuyou.com/feed.xml) · [中文 README](README.zh.md)
 
 [![CI](https://github.com/JS-banana/deals/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JS-banana/deals/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -41,7 +41,7 @@ pnpm db:seed
 SITE_URL=http://localhost:3000 pnpm dev
 ```
 
-Open the [local English site](http://localhost:3000/en) to browse listings, or sign in to the [review console](http://localhost:3000/admin) using `ADMIN_USER` and `ADMIN_PASSWORD` from the root `.env`.
+Open the [local English site](http://localhost:3000) to browse listings, or sign in to the [review console](http://localhost:3000/admin) using `ADMIN_USER` and `ADMIN_PASSWORD` from the root `.env`.
 
 The local preview runs PostgreSQL and the web app. Compose checks for a worker API key when parsing the configuration, so `unused` satisfies that check during database startup. Set valid `LLM_*` values in `.env` before running collection or translation jobs.
 

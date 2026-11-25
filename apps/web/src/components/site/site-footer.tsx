@@ -1,5 +1,7 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { toLocale } from '@/lib/deal-view';
+import { feedPath } from '@/lib/seo';
 import { Brand } from './brand';
 import { TipForm } from './tip-form';
 
@@ -23,10 +25,7 @@ export function SiteFooter() {
           <Link href="/events" className="hover:text-foreground">
             {t('events')}
           </Link>
-          <a
-            href={locale === 'en' ? '/en/feed.xml' : '/feed.xml'}
-            className="hover:text-foreground"
-          >
+          <a href={feedPath(toLocale(locale))} className="hover:text-foreground">
             RSS
           </a>
           <a href={REPO} className="hover:text-foreground">

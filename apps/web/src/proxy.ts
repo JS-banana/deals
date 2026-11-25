@@ -17,6 +17,17 @@ export default function proxy(request: NextRequest) {
     }
     return NextResponse.next();
   }
+  // Permanently consolidate legacy /en pages onto the default English root while preserving query params.
+  if (path === '/en' || path.startsWith('/en/')) {
+    const rest = path.slice(3).replace(/^[/\\]+/, '');
+    const origin = process.env.SITE_URL?.trim();
+    if (origin) {
+      return NextResponse.redirect(new URL(`/${rest}${request.nextUrl.search}`, origin), 308);
+    }
+    const target = request.nextUrl.clone();
+    target.pathname = `/${rest}`;
+    return NextResponse.redirect(target, 308);
+  }
   return handleI18n(request);
 }
 

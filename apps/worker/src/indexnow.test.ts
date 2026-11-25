@@ -69,8 +69,8 @@ const offersPages = [
   '/topics/developers',
   '/topics/lifetime',
 ];
-const english = (path: string) => (path === '/' ? '/en' : `/en${path}`);
-const both = (paths: string[]) => paths.flatMap((path) => [path, english(path)]).sort();
+const chinese = (path: string) => (path === '/' ? '/zh' : `/zh${path}`);
+const both = (paths: string[]) => paths.flatMap((path) => [path, chinese(path)]).sort();
 
 describe('IndexNow catalog changes', () => {
   it('includes the sitemap paths once in both languages on the initial run', () => {
@@ -111,9 +111,7 @@ describe('IndexNow catalog changes', () => {
       ...deal,
       product: { ...deal.product, summary: { zh: '数据库', en: 'Database' } },
     };
-    expect(changedPaths(pages(deal), pages(translated)).sort()).toEqual(
-      offersPages.map(english).sort(),
-    );
+    expect(changedPaths(pages(deal), pages(translated)).sort()).toEqual([...offersPages].sort());
   });
 
   it('picks up expired offers even when no database fields changed', () => {
@@ -121,5 +119,11 @@ describe('IndexNow catalog changes', () => {
     const later = catalogPages([ending], [event], new Date('2026-11-21T12:00:00Z'));
     expect(changedPaths(pages(ending), later).sort()).toEqual(both([...offersPages, '/events']));
     expect(later).toHaveProperty('/p/tablepro');
+  });
+
+  it('hashes the same empty page content differently per locale', () => {
+    const empty = catalogPages([], [], now);
+    expect(empty['/events']).not.toBe(empty['/zh/events']);
+    expect(empty['/about']).not.toBe(empty['/zh/about']);
   });
 });

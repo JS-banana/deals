@@ -1,10 +1,10 @@
 import { CATEGORIES, pick, TOPICS } from '@deals/core';
 import { getPublishedDeals } from '@/lib/data';
-import { dealHref } from '@/lib/deal-view';
+import { dealHref, toLocale } from '@/lib/deal-view';
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
-  const locale = params.get('locale') === 'en' ? 'en' : 'zh';
+  const locale = toLocale(params.get('locale') ?? '');
   const q = (params.get('q') ?? '').trim().toLowerCase().slice(0, 120);
   const matches = (value: string) => value.toLowerCase().includes(q);
   const categories = CATEGORIES.filter((c) =>

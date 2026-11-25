@@ -28,7 +28,7 @@ export interface Fmt {
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
-export const toLocale = (value: string): Locale => (value === 'en' ? 'en' : 'zh');
+export const toLocale = (value: string): Locale => (value === 'zh' ? 'zh' : 'en');
 
 /** Icon and soft tile colors per category, so cards in different categories look different. */
 export const CATEGORY_UI: Record<CategorySlug, { icon: LucideIcon; tint: string }> = {

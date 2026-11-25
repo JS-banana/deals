@@ -2,7 +2,7 @@ import { dealState, type Locale, pick } from '@deals/core';
 import { createFormatter, createTranslator } from 'next-intl';
 import { getPublishedDeals, siteUrl } from './data';
 import { categoryName, deadline, dealHref, priceParts, type T } from './deal-view';
-import { localePath } from './seo';
+import { feedPath, localePath } from './seo';
 
 const escapeXml = (text: string) => text.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -50,7 +50,7 @@ export async function renderFeed(locale: Locale): Promise<Response> {
     </item>`;
   });
 
-  const feedUrl = siteUrl(locale === 'en' ? '/en/feed.xml' : '/feed.xml');
+  const feedUrl = siteUrl(feedPath(locale));
   const newest =
     deals
       .map((d) => d.checkedOn)

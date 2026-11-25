@@ -2,9 +2,10 @@
 
 import { DEFAULT_FILTERS, filtersToParams, type ListFilters } from '@deals/core';
 import { Loader2, Search, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { type ChangeEvent, useEffect, useRef, useState, useTransition } from 'react';
-import { usePathname, useRouter } from '@/i18n/navigation';
+import { getPathname, usePathname, useRouter } from '@/i18n/navigation';
+import { toLocale } from '@/lib/deal-view';
 
 /**
  * Hero search bar synced with URL `?q=` while preserving active filters.
@@ -13,8 +14,10 @@ import { usePathname, useRouter } from '@/i18n/navigation';
 export function HeroSearch({ filters }: { filters: ListFilters }) {
   const t = useTranslations('hero');
   const td = useTranslations('discover');
+  const locale = toLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
+  const formAction = getPathname({ href: pathname, locale });
   const [pending, startTransition] = useTransition();
   const [q, setQ] = useState(filters.q);
   const latestFilters = useRef(filters);
@@ -59,7 +62,7 @@ export function HeroSearch({ filters }: { filters: ListFilters }) {
 
   return (
     <form
-      action={pathname}
+      action={formAction}
       method="get"
       onSubmit={(event) => {
         event.preventDefault();

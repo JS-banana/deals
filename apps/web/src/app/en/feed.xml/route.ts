@@ -1,5 +1,7 @@
-import { renderFeed } from '@/lib/feed';
-
 export const dynamic = 'force-dynamic';
 
-export const GET = () => renderFeed('en');
+export const GET = () =>
+  new Response(null, {
+    status: 308,
+    headers: { Location: '/feed.xml', 'Cache-Control': 'public, max-age=86400' },
+  });

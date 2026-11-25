@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useHydrated } from '@/hooks/use-hydrated';
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { getPathname, Link, usePathname, useRouter } from '@/i18n/navigation';
 import { toLocale } from '@/lib/deal-view';
 import { cn } from '@/lib/utils';
 
@@ -117,6 +117,7 @@ export function FilterBar({
   const locale = toLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
+  const formAction = getPathname({ href: pathname, locale });
   const hydrated = useHydrated();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useOptimistic(filters);
@@ -311,7 +312,7 @@ export function FilterBar({
   return (
     <search aria-label={t('label')}>
       <form
-        action={pathname}
+        action={formAction}
         method="get"
         data-pending={pending}
         onSubmit={(event) => {

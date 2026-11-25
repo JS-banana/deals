@@ -6,7 +6,7 @@
 
 从黑五、网一到常年优惠，查清软件首期付多少、续费怎么算、老用户能不能用。
 
-[浏览优惠](https://deals.laifuyou.com) · [订阅 RSS](https://deals.laifuyou.com/feed.xml) · [English README](README.md)
+[浏览优惠](https://deals.laifuyou.com/zh) · [订阅 RSS](https://deals.laifuyou.com/zh/feed.xml) · [English README](README.md)
 
 [![CI](https://github.com/JS-banana/deals/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JS-banana/deals/actions/workflows/ci.yml)
 [![MIT 许可证](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -41,7 +41,7 @@ pnpm db:seed
 SITE_URL=http://localhost:3000 pnpm dev
 ```
 
-打开 [本地首页](http://localhost:3000) 即可浏览优惠；访问 [审核后台](http://localhost:3000/admin) 时使用 `.env` 中的 `ADMIN_USER` 与 `ADMIN_PASSWORD` 登录。
+打开 [本地中文站点](http://localhost:3000/zh)（默认英文站点在 `http://localhost:3000`）即可浏览优惠；访问 [审核后台](http://localhost:3000/admin) 时使用 `.env` 中的 `ADMIN_USER` 与 `ADMIN_PASSWORD` 登录。
 
 本地预览仅启动 PostgreSQL 与 Web。Compose 解析配置时会校验 Worker 密钥，因此数据库启动命令传入 `unused` 占位；若需运行采集或翻译任务，请先在 `.env` 中配置有效的 `LLM_*` 参数。
 

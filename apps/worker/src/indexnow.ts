@@ -22,9 +22,9 @@ export function catalogPages(deals: DealView[], events: DealEvent[], now: Date):
   const pages: PageHashes = {};
   const addPage = (path: string, content: unknown) => {
     for (const locale of LOCALES) {
-      const localized = locale === 'zh' ? path : path === '/' ? '/en' : `/en${path}`;
+      const localized = locale === 'en' ? path : path === '/' ? '/zh' : `/zh${path}`;
       pages[localized] = sha256(
-        JSON.stringify(content, (_key, value) =>
+        JSON.stringify([locale, content], (_key, value) =>
           typeof value?.zh === 'string' && typeof value.en === 'string'
             ? pick(value, locale)
             : value,

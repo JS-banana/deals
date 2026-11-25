@@ -2,4 +2,4 @@ import { renderFeed } from '@/lib/feed';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = () => renderFeed('zh');
+export const GET = () => renderFeed('en');
