@@ -11,6 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const paths = [
     '/',
     '/events',
+    '/privacy',
     ...events.map((e) => `/events/${e.slug}`),
     ...CATEGORIES.map((c) => `/category/${c.slug}`),
     ...TOPICS.map((topic) => `/topics/${topic.slug}`),

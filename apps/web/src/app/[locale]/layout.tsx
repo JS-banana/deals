@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { connection } from 'next/server';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { CompareBar } from '@/components/deals/compare';
@@ -45,6 +46,7 @@ export default async function LocaleLayout({
   modal: React.ReactNode;
 }) {
   const locale = await getLocale();
+  await connection();
   const measurementId = process.env.GA_MEASUREMENT_ID?.trim();
   return (
     <html

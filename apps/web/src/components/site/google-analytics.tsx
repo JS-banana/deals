@@ -27,8 +27,11 @@ export function GoogleAnalytics({ measurementId }: { measurementId: string }) {
     page.pathname = pathname;
     if (previousPage.current === page.href) return;
 
-    const pageReferrer =
-      previousPage.current || (document.referrer ? new URL(document.referrer).origin : '');
+    const referrer = document.referrer ? new URL(document.referrer) : null;
+    let pageReferrer = previousPage.current ?? referrer?.origin ?? '';
+    if (!previousPage.current && referrer?.origin === page.origin) {
+      pageReferrer = `${referrer.origin}${referrer.pathname}`;
+    }
     previousPage.current = page.href;
 
     // Keep campaign attribution without sending search text, filters or pagination.

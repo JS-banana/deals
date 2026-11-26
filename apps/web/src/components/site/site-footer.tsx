@@ -25,6 +25,9 @@ export function SiteFooter() {
           <Link href="/events" className="hover:text-foreground">
             {t('events')}
           </Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            {t('privacy')}
+          </Link>
           <a href={feedPath(toLocale(locale))} className="hover:text-foreground">
             RSS
           </a>
