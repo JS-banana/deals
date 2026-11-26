@@ -55,6 +55,7 @@ services:
     environment:
       DATABASE_URL: *database-url
       SITE_URL: ${SITE_URL:?set SITE_URL in .env}
+      GA_MEASUREMENT_ID: ${GA_MEASUREMENT_ID:-}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       MEDIA_DIR: /data/media
       COMMUNITY_HASH_SECRET: ${COMMUNITY_HASH_SECRET:-}

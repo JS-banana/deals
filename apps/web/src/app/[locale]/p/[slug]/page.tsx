@@ -20,7 +20,7 @@ import {
   getPublishedDeals,
   siteUrl,
 } from '@/lib/data';
-import { categoryName, deadline, dealHref, logoSrc, mainDeal, priceParts } from '@/lib/deal-view';
+import { categoryName, deadline, logoSrc, mainDeal, priceParts } from '@/lib/deal-view';
 import { alternatesFor, JsonLd, keywordList, pageUrl } from '@/lib/seo';
 
 export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): Promise<Metadata> {
@@ -67,7 +67,8 @@ export async function generateMetadata(props: PageProps<'/[locale]/p/[slug]'>): 
       event,
       categoryName(deal.product.category, locale),
     ],
-    alternates: alternatesFor(offer === undefined ? `/p/${slug}` : dealHref(slug, deal.id), locale),
+    // Offer links select a quote for visitors. Search indexes the stable product URL in each locale.
+    alternates: alternatesFor(`/p/${slug}`, locale),
     openGraph: { title, description },
   };
 }
@@ -153,18 +154,15 @@ export default async function ProductPage(props: PageProps<'/[locale]/p/[slug]'>
           </ul>
         </section>
       )}
-      {deal.priceAmount !== null && deal.currency && (
+      {logo && deal.priceAmount !== null && deal.currency && (
         <JsonLd
           data={{
             '@context': 'https://schema.org',
             '@type': 'Product',
             name: product.name,
             description: pick(product.summary, locale),
-            url: pageUrl(
-              offer === undefined ? `/p/${product.slug}` : dealHref(slug, deal.id),
-              locale,
-            ),
-            ...(logo ? { image: siteUrl(logo) } : {}),
+            url: pageUrl(`/p/${product.slug}`, locale),
+            image: siteUrl(logo),
             offers: {
               '@type': 'Offer',
               price: deal.priceAmount,
