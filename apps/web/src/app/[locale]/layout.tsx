@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { connection } from 'next/server';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { CompareBar } from '@/components/deals/compare';
 import { Providers } from '@/components/providers';
+import { GoogleAnalytics } from '@/components/site/google-analytics';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
 import { routing } from '@/i18n/routing';
@@ -44,6 +46,8 @@ export default async function LocaleLayout({
   modal: React.ReactNode;
 }) {
   const locale = await getLocale();
+  await connection();
+  const measurementId = process.env.GA_MEASUREMENT_ID?.trim();
   return (
     <html
       lang={locale === 'zh' ? 'zh-CN' : 'en'}
@@ -62,6 +66,9 @@ export default async function LocaleLayout({
             <CompareBar />
           </Providers>
         </NextIntlClientProvider>
+        {measurementId && /^G-[A-Z0-9]+$/.test(measurementId) && (
+          <GoogleAnalytics measurementId={measurementId} />
+        )}
       </body>
     </html>
   );

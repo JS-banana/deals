@@ -26,7 +26,14 @@
     "tagline": "Software discounts from around the world, with prices, renewals and eligibility spelled out.",
     "about": "How we curate",
     "events": "All events",
+    "privacy": "Privacy",
     "feedback": "Report an issue"
+  },
+  "privacy": {
+    "title": "Privacy policy",
+    "analytics": "Deal Index uses Google Analytics to understand which pages people visit and how they find the site. Google receives page paths, traffic source and browser information, and may use cookies to recognize a browser across visits. The site excludes the search terms you enter from Analytics.",
+    "google": "How Google uses data from sites that use its services",
+    "optOut": "Google Analytics opt-out browser add-on"
   },
   "common": {
     "breadcrumb": "Breadcrumb",

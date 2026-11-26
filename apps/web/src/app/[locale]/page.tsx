@@ -81,11 +81,6 @@ export default async function HomePage(props: PageProps<'/[locale]'>) {
           name: t('meta.siteName'),
           url: home,
           inLanguage: locale === 'zh' ? 'zh-CN' : 'en',
-          potentialAction: {
-            '@type': 'SearchAction',
-            target: { '@type': 'EntryPoint', urlTemplate: `${home}?q={search_term_string}` },
-            'query-input': 'required name=search_term_string',
-          },
         }}
       />
     </>

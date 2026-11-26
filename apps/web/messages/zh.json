@@ -26,7 +26,14 @@
     "tagline": "整理全球软件的折扣活动：价格、续费与资格限制，一次看清。",
     "about": "收录标准",
     "events": "全部活动",
+    "privacy": "隐私",
     "feedback": "反馈纠错"
+  },
+  "privacy": {
+    "title": "隐私政策",
+    "analytics": "好价清单使用 Google Analytics 了解访客浏览了哪些页面、通过什么渠道找到本站。Google 会收到页面路径、流量来源和浏览器信息，并可能通过 Cookie 在多次访问中识别同一个浏览器。你输入的站内搜索词不会发送给 Analytics。",
+    "google": "Google 如何使用采用其服务的网站的数据",
+    "optOut": "停用 Google Analytics 的浏览器插件"
   },
   "common": {
     "breadcrumb": "当前位置",
