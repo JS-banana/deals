@@ -20,6 +20,7 @@ Worker 负责从已启用的来源收集线索，再向商家页核验报价、�
 | `indexnow`       | 将公开优惠和活动的变化通知 Bing 等支持 IndexNow 的搜索引擎（`--dry-run` 可预览待推送网址）                               |
 | `sync-slow`      | GitHub、官方与社区 RSS、Brave 查询。原 `sync-upstream` 命令只运行主 GitHub 清单                                          |
 | `sync-fast`      | Reddit、HN、X/RSSHub 和站内爆料                                                                                          |
+| `import-signals` | 导入 JSONL（`--file <path>`、`--dry-run`），`sync-fast` 需设置 `SOURCE_AGENT_COLLECTED_ENABLED=true`                     |
 | `prune`          | 清理超过 30 天的历史正文，保留每个 URL 的最新快照与提案证据                                                              |
 | `digest`         | 通过可选的 `NOTIFY_WEBHOOK_URL` 发送待审原因和任务异常                                                                   |
 | `notify-offers`  | 将分数至少 90 或属于精选活动的 AI 新发布报价发到已配置的群                                                               |

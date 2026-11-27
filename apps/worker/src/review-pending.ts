@@ -17,6 +17,8 @@ import { bump } from './util.ts';
 import { dropRateAcceptable } from './verify.ts';
 
 const UNCONFIRMED_MERCHANT = '商家域名尚未经独立确认';
+/** Curated proposals carry auditInputs.sourceTrust from this release (907bf96) on. */
+const SOURCE_TRUST_SINCE = new Date('2026-11-24T01:09:04Z');
 
 export const reviewPending: Job = async (ctx) => {
   const { db, stats } = ctx;
@@ -56,8 +58,14 @@ export const reviewPending: Job = async (ctx) => {
       notes: [],
     };
     let confidence = proposal.confidence ?? 0;
-    if (kind === 'create' && sourceRef?.startsWith(`https://github.com/${UPSTREAM_REPO}/`)) {
-      const legacy = proposal.auditInputs?.sourceTrust !== 'curated';
+    const legacy = proposal.auditInputs?.sourceTrust !== 'curated';
+    // Only proposals filed before sourceTrust existed may be upgraded by URL alone; a later
+    // unmarked proposal came from a non-curated source even if its link points at the list.
+    if (
+      kind === 'create' &&
+      sourceRef?.startsWith(`https://github.com/${UPSTREAM_REPO}/`) &&
+      (!legacy || proposal.createdAt < SOURCE_TRUST_SINCE)
+    ) {
       if (proposal.auditInputs?.notes.includes(UNCONFIRMED_MERCHANT)) {
         confidence = Math.min(1, Math.round((confidence + 0.15) * 100) / 100);
       }
