@@ -1,4 +1,4 @@
-import { type Deal, type DealEvent, dealState } from '@deals/core';
+import { type Deal, type DealEvent, dealState, eventPhase } from '@deals/core';
 import type { Evidence, FieldChange } from '@deals/db';
 
 /** Lower-risk comparison form: Unicode-folded, markdown markers dropped, whitespace collapsed. */
@@ -125,10 +125,10 @@ type EventWindow = Pick<DealEvent, 'slug' | 'kind' | 'featured' | 'startsOn' | '
 export function pickEvent(
   events: readonly EventWindow[],
   deal: Pick<Deal, 'startsOn' | 'endsOn'>,
-  today: string,
+  now: Date,
 ): string {
   const seasonal = events
-    .filter((e) => e.kind === 'seasonal' && e.featured && (e.endsOn === null || e.endsOn >= today))
+    .filter((e) => e.kind === 'seasonal' && e.featured && eventPhase(e, now) !== 'ended')
     .sort((a, b) => (a.startsOn ?? '').localeCompare(b.startsOn ?? ''));
   const hit = seasonal.find(
     (e) =>

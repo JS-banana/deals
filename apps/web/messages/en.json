@@ -76,6 +76,7 @@
       "unknownShort": "No code yet"
     },
     "deadline": {
+      "zone": "UTC",
       "ended": "Ended",
       "startsToday": "Starts today",
       "startsInHours": "Starts in {count}h",
@@ -281,7 +282,7 @@
     },
     "time": {
       "title": "How dates and times work",
-      "body": "Campaigns with a precise time show Beijing time on the Chinese site and UTC on the English site. Date-only campaigns keep the date the source gives, with no time added, and end according to the merchant's calendar day. A deal with no published start is never treated as not yet started."
+      "body": "Campaigns with a precise time show Beijing time on the Chinese site and UTC on the English site. Date-only campaigns keep the date the source gives, with no time added. The end date runs through the full calendar day in the merchant's time zone, or US Pacific time if no zone is specified. A deal with no published start is never treated as not yet started."
     },
     "checkout": {
       "title": "The checkout price is final",

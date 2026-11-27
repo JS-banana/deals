@@ -2,6 +2,7 @@ import {
   BILLING,
   CATEGORY_SLUGS,
   calendarDay,
+  DEFAULT_MERCHANT_TIME_ZONE,
   type Deal,
   type DealView,
   dealSchema,
@@ -259,13 +260,14 @@ export async function extractCandidate(
   )
     notes.push('商家域名尚未经独立确认');
   const stripped = stripUnverified(extraction.built.deal, sourceText);
-  const dates = checkDates(stripped.deal, new Date(), day);
+  const now = new Date();
+  const dates = checkDates(stripped.deal, now, day);
   notes.push(...stripped.notes, ...dates.notes);
   if (dates.ended) return skip('ended');
   const checked = dealSchema.safeParse(dates.deal);
   if (!checked.success) return skip('unverifiable', z.prettifyError(checked.error).slice(0, 200));
   const deal: Deal = checked.data;
-  if (renewal && dealState(deal, new Date()) === 'upcoming') return skip('upcoming');
+  if (renewal && dealState(deal, now) === 'upcoming') return skip('upcoming');
 
   const { kept, dropped } = verifyEvidence(extraction.evidence, sources);
   if (!kept.length) return skip('no-verified-evidence');
@@ -284,7 +286,7 @@ export async function extractCandidate(
   const product: Product = catalogProduct
     ? productSchema.parse(catalogProduct)
     : extraction.built.product;
-  const event = renewal?.event.slug ?? pickEvent(catalog.events, deal, day);
+  const event = renewal?.event.slug ?? pickEvent(catalog.events, deal, now);
   const eventId = renewal?.event.id ?? catalog.events.find((e) => e.slug === event)?.id;
   const existingOffers = known?.offers?.filter((o) => o.eventId === eventId) ?? [];
   const label = extraction.deal?.merchantPlan || '';
@@ -332,9 +334,18 @@ export async function extractCandidate(
     if (!renewal) return skip('existing-proposal');
     // A stable offer identity can recur. Require a later, merchant-quoted window before
     // giving it a new key, since the official page may still show the expired promotion.
-    const endedAt = renewal.observedEndedAt ?? renewal.endsAt;
-    const zone = renewal.dateZone ?? undefined;
-    const endedOn = endedAt ? calendarDay(new Date(endedAt), zone) : renewal.endsOn;
+    // An early merchant end must not make the old announced end look like a new window.
+    const endedAt =
+      [renewal.observedEndedAt, renewal.endsAt]
+        .filter((value) => value !== null)
+        .sort((a, b) => Date.parse(a) - Date.parse(b))
+        .at(-1) ?? null;
+    const zone = renewal.dateZone ?? DEFAULT_MERCHANT_TIME_ZONE;
+    const endedOn =
+      [endedAt && calendarDay(new Date(endedAt), zone), renewal.endsOn]
+        .filter((value) => value !== null)
+        .sort()
+        .at(-1) ?? null;
     const gaps = missingMerchantEvidence(deal, [], kept, { url: page.url, text: page.text });
     const newWindow = (['startsAt', 'endsAt', 'startsOn', 'endsOn'] as const).some((field) => {
       const value = deal[field];

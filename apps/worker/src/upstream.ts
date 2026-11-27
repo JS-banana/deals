@@ -2,7 +2,6 @@ import type { Deal, DealEvent, Product } from '@deals/core';
 import { deals as dealsTable, listEvents, products as productsTable, toProduct } from '@deals/db';
 import { load } from 'cheerio';
 import type { Ctx } from './runtime.ts';
-import { today } from './runtime.ts';
 import { pickEvent } from './verify.ts';
 
 export const UPSTREAM_REPO = 'trungdq88/Awesome-Black-Friday-Cyber-Monday';
@@ -331,7 +330,7 @@ export async function loadCatalog(ctx: Ctx): Promise<Catalog> {
       .from(dealsTable),
     listEvents(ctx.db),
   ]);
-  const targetSlug = pickEvent(events, { startsOn: null, endsOn: null }, today());
+  const targetSlug = pickEvent(events, { startsOn: null, endsOn: null }, new Date());
   const targetId = events.find((e) => e.slug === targetSlug)?.id;
   return {
     events,

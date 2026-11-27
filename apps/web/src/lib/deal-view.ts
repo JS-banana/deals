@@ -2,6 +2,7 @@ import {
   CATEGORIES,
   type CategorySlug,
   calendarDay,
+  DEFAULT_MERCHANT_TIME_ZONE,
   type DealEvent,
   type DealView,
   dealState,
@@ -11,7 +12,6 @@ import {
   type Locale,
   moneyParts,
   pick,
-  SITE_TIME_ZONE,
 } from '@deals/core';
 import { Cloud, Code, ListChecks, type LucideIcon, Palette, Sparkles, Wrench } from 'lucide-react';
 
@@ -46,7 +46,7 @@ export function categoryName(slug: CategorySlug, locale: Locale): string {
 
 const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY);
-const zoneOf = (d: Pick<DealView, 'dateZone'>) => d.dateZone ?? SITE_TIME_ZONE;
+const zoneOf = (d: Pick<DealView, 'dateZone'>) => d.dateZone ?? DEFAULT_MERCHANT_TIME_ZONE;
 
 /** Date-only values print the same everywhere, so they are formatted as UTC calendar days. */
 export function dayLabel(day: string, now: Date, fmt: Fmt, withYear = false): string {
@@ -91,11 +91,14 @@ export interface Deadline {
 }
 
 /** Relative wording plus the matching absolute date, e.g. "11 days left · Dec 1". */
-export function deadline(d: DealView, now: Date, t: T, fmt: Fmt): Deadline {
+export function deadline(d: Parameters<typeof dealState>[0], now: Date, t: T, fmt: Fmt): Deadline {
   const state = dealState(d, now);
   const today = calendarDay(now, zoneOf(d));
+  const label = state === 'upcoming' ? startLabel(d, now, fmt) : endLabel(d, now, fmt);
+  const instant = state === 'upcoming' ? d.startsAt : d.endsAt;
+  const secondary = instant ? `${label} ${t('deadline.zone')}` : label;
   if (state === 'ended') {
-    return { primary: t('deadline.ended'), secondary: endLabel(d, now, fmt), tone: 'muted' };
+    return { primary: t('deadline.ended'), secondary, tone: 'muted' };
   }
   if (state === 'upcoming') {
     let primary = t('deadline.startsToday');
@@ -109,7 +112,7 @@ export function deadline(d: DealView, now: Date, t: T, fmt: Fmt): Deadline {
       const days = daysBetween(today, d.startsOn);
       if (days > 0) primary = t('deadline.startsIn', { count: days });
     }
-    return { primary, secondary: startLabel(d, now, fmt), tone: 'normal' };
+    return { primary, secondary, tone: 'normal' };
   }
   if (d.endsAt) {
     const ms = Date.parse(d.endsAt) - now.getTime();
@@ -121,7 +124,7 @@ export function deadline(d: DealView, now: Date, t: T, fmt: Fmt): Deadline {
           : t('deadline.daysLeft', { count: Math.floor(ms / DAY) });
     return {
       primary,
-      secondary: instantLabel(d.endsAt, now, fmt),
+      secondary,
       tone: ms <= 48 * HOUR ? 'urgent' : 'normal',
     };
   }
@@ -129,7 +132,7 @@ export function deadline(d: DealView, now: Date, t: T, fmt: Fmt): Deadline {
     const days = daysBetween(today, d.endsOn);
     return {
       primary: days <= 0 ? t('deadline.endsToday') : t('deadline.daysLeft', { count: days }),
-      secondary: dayLabel(d.endsOn, now, fmt),
+      secondary,
       tone: days < 2 ? 'urgent' : 'normal',
     };
   }
@@ -231,9 +234,9 @@ export function eventRange(
   return `${dayLabel(e.startsOn, now, fmt)} – ${dayLabel(e.endsOn, now, fmt)}`;
 }
 
-/** "in 7 days" / "today" / "passed" for a calendar date, from the site's calendar. */
+/** "in 7 days" / "today" / "passed" for an event key date, on the same calendar as `eventPhase`. */
 export function relativeDay(day: string, now: Date, t: T): string {
-  const diff = daysBetween(calendarDay(now), day);
+  const diff = daysBetween(calendarDay(now, DEFAULT_MERCHANT_TIME_ZONE), day);
   if (diff === 0) return t('today');
   return diff > 0 ? t('inDays', { count: diff }) : t('passed');
 }

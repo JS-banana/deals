@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calendarDay, dealState, isEndingSoon } from './status.ts';
+import { calendarDay, dealState, eventPhase, isEndingSoon } from './status.ts';
 
 const base = {
   startsOn: null,
@@ -21,6 +21,14 @@ describe('calendarDay', () => {
 });
 
 describe('dealState', () => {
+  it('uses Pacific calendar days for date-only bounds without a merchant zone', () => {
+    const d = { ...base, startsOn: '2026-12-01', endsOn: '2026-12-01' };
+    expect(dealState(d, at('2026-12-01T07:59:59Z'))).toBe('upcoming');
+    expect(dealState(d, at('2026-12-01T08:00:00Z'))).toBe('live');
+    expect(dealState(d, at('2026-12-01T20:00:00Z'))).toBe('live');
+    expect(dealState(d, at('2026-12-02T08:30:00Z'))).toBe('ended');
+  });
+
   it('prioritizes a merchant end observation over the advertised schedule', () => {
     const d = {
       ...base,
@@ -63,6 +71,9 @@ describe('dealState', () => {
     expect(dealState({ ...d, observedLiveOn: '2026-11-19' }, at('2026-11-20T00:00:00Z'))).toBe(
       'live',
     );
+    expect(dealState({ ...d, observedLiveOn: '2026-11-20' }, at('2026-11-20T00:00:00Z'))).toBe(
+      'live',
+    );
     expect(dealState({ ...d, observedLiveOn: '2026-11-21' }, at('2026-11-20T00:00:00Z'))).toBe(
       'unknown',
     );
@@ -77,11 +88,29 @@ describe('isEndingSoon', () => {
     expect(isEndingSoon(d, at('2026-12-01T08:00:00Z'))).toBe(false);
   });
 
-  it('flags the last two calendar days, including deals with an unknown start', () => {
-    const d = { ...base, endsOn: '2026-12-03' };
+  it('flags the last two days in the specified zone, including deals with an unknown start', () => {
+    const d = { ...base, endsOn: '2026-12-03', dateZone: 'Asia/Shanghai' };
     expect(isEndingSoon(d, at('2026-12-01T04:00:00Z'))).toBe(false);
     expect(isEndingSoon(d, at('2026-12-02T04:00:00Z'))).toBe(true);
     expect(isEndingSoon(d, at('2026-12-03T15:00:00Z'))).toBe(true);
     expect(isEndingSoon(d, at('2026-12-03T17:00:00Z'))).toBe(false);
+  });
+
+  it('enters and leaves the final two calendar days at Pacific midnight by default', () => {
+    const d = { ...base, endsOn: '2026-12-01' };
+    expect(isEndingSoon(d, at('2026-11-30T07:59:59Z'))).toBe(false);
+    expect(isEndingSoon(d, at('2026-11-30T08:00:00Z'))).toBe(true);
+    expect(isEndingSoon(d, at('2026-12-02T07:59:59Z'))).toBe(true);
+    expect(isEndingSoon(d, at('2026-12-02T08:00:00Z'))).toBe(false);
+  });
+});
+
+describe('eventPhase', () => {
+  it('opens and closes seasonal events at Pacific midnight', () => {
+    const e = { kind: 'seasonal' as const, startsOn: '2026-12-01', endsOn: '2026-12-01' };
+    expect(eventPhase(e, at('2026-12-01T07:59:59Z'))).toBe('upcoming');
+    expect(eventPhase(e, at('2026-12-01T08:00:00Z'))).toBe('live');
+    expect(eventPhase(e, at('2026-12-02T07:59:59Z'))).toBe('live');
+    expect(eventPhase(e, at('2026-12-02T08:00:00Z'))).toBe('ended');
   });
 });
