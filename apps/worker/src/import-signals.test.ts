@@ -98,6 +98,11 @@ describe('parseSignalRow', () => {
     (publishedAt) => expect(parse({ publishedAt }).publishedAt).toBeNull(),
   );
 
+  it('rejects a blank title or quote', () => {
+    expect(() => parse({ title: ' ' })).toThrow('title');
+    expect(() => parse({ quote: '\n\t' })).toThrow('quote');
+  });
+
   it('rejects text that PostgreSQL JSONB cannot store', () => {
     expect(() => parse({ title: 'deal\0' })).toThrow('title');
     expect(() => parse({ quote: '\uD800' })).toThrow('quote');
@@ -152,6 +157,16 @@ describe('importSignals', () => {
 
     await writeFile(file, `${padded.slice(0, -1)}é`);
     await expect(importSignals(context())).rejects.toThrow('line 1 exceeds 64 KB');
+  });
+
+  it('fails when no line is valid', async () => {
+    await writeFile(file, '{\n  "pretty": true\n}\n');
+    await expect(importSignals(context())).rejects.toThrow('no valid line');
+  });
+
+  it('counts blank lines towards the line limit', async () => {
+    await writeFile(file, `${'\n'.repeat(2000)}${JSON.stringify(input)}\n`);
+    await expect(importSignals(context())).rejects.toThrow('file exceeds 2000 lines');
   });
 
   it('rejects files over 2000 lines', async () => {

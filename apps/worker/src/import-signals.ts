@@ -14,12 +14,13 @@ const SOURCE_ID = 'agent-collected';
 const socialHost = /(^|\.)(reddit\.com|redd\.it|news\.ycombinator\.com|x\.com|twitter\.com|t\.co)$/;
 const instant = z.iso.datetime({ offset: true });
 // PostgreSQL JSONB rejects NUL and unpaired surrogates, even when escaped in JSON.
-const storableText = (value: string) => !value.includes('\0') && !/[\uD800-\uDFFF]/u.test(value);
+const storableText = (value: string) =>
+  value.trim() !== '' && !value.includes('\0') && !/[\uD800-\uDFFF]/u.test(value);
 const inputSchema = z.object({
   source: z.string().regex(/^[a-z0-9-]{1,40}$/),
   sourceUrl: z.string(),
-  title: z.string().min(1).max(500).refine(storableText, 'contains unsupported characters'),
-  quote: z.string().min(1).max(10_000).refine(storableText, 'contains unsupported characters'),
+  title: z.string().max(500).refine(storableText, 'is blank or has unsupported characters'),
+  quote: z.string().max(10_000).refine(storableText, 'is blank or has unsupported characters'),
   merchantUrls: z.array(z.string()).min(1).max(8),
   publishedAt: z.string().nullish(),
   engagement: z.number().optional(),
@@ -85,12 +86,14 @@ export async function importSignals(
   const text = new TextDecoder('utf-8', { fatal: true }).decode(
     await readFile(ctx.file, { signal: ctx.signal }),
   );
-  for (const [index, raw] of text.split('\n').entries()) {
+  const lines = text.split('\n');
+  if (lines.at(-1) === '') lines.pop();
+  if (lines.length > MAX_LINES) throw new Error(`file exceeds ${MAX_LINES} lines`);
+  for (const [index, raw] of lines.entries()) {
     const line = raw.replace(/\r$/, '');
-    if (!line.trim()) continue;
-    if (index >= MAX_LINES) throw new Error(`file exceeds ${MAX_LINES} lines`);
     if (Buffer.byteLength(line) > MAX_LINE_BYTES)
       throw new Error(`line ${index + 1} exceeds 64 KB`);
+    if (!line.trim()) continue;
     try {
       const row = parseSignalRow(line, now);
       if (!ctx.dryRun) rows.push(row);
@@ -100,6 +103,7 @@ export async function importSignals(
       ctx.log(`line ${index + 1}: ${errorMessage(error)}`);
     }
   }
+  if (counts.invalid && !counts.valid) throw new Error('no valid line in the file');
   ctx.signal.throwIfAborted();
   if (!rows.length) return;
 
