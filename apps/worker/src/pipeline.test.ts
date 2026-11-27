@@ -29,7 +29,10 @@ describe('factProblem', () => {
     ['3.5万词', '35 thousand words'],
     ['1,200万词', '12000000 words'],
     ['15亿词', '1.5bn words'],
-    ['每月 320 万词，赠 25 万积分', '250k bonus credits and 3.200003mn words/month'],
+    ['每月 320 万词，赠 25 万积分', '250k bonus credits and 3.2mn words/month'],
+    ['1 万亿 tokens', '1 trillion tokens'],
+    ['10 万词额度', 'a 100-thousand-word quota'],
+    ['2026 万圣节优惠', '2026 Halloween sale'],
   ])('accepts equivalent quantities in %s and %s', (zh, en) => {
     expect(factProblem({ zh, product: 'X' }, en)).toBeNull();
   });
@@ -39,6 +42,8 @@ describe('factProblem', () => {
     ['最高每月 320 万词', '3.200004 million words'],
     ['每月 320 万词，赠 25 万积分', '3.2 million words/month'],
     ['320 万词，有效期 320 天', '3.2 million words'],
+    ['15 亿积分', '1,499,999,000 credits'],
+    ['1 万亿 tokens', '10,000 tokens'],
   ])('rejects missing or altered quantities in %s and %s', (zh, en) => {
     expect(factProblem({ zh, product: 'X' }, en)).not.toBeNull();
   });
