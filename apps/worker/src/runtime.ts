@@ -99,6 +99,8 @@ export interface JobOptions {
   refresh?: boolean | undefined;
   /** translate-eval: sample size. */
   sample?: number | undefined;
+  /** import-signals: path to the input JSONL file. */
+  file?: string | undefined;
 }
 
 /** Everything a job needs; one per job run so stats and rate limits do not leak across jobs. */

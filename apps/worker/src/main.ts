@@ -1,5 +1,7 @@
+import { resolve } from 'node:path';
 import { Cron } from 'croner';
 import { auditEval } from './audit-eval.ts';
+import { importSignals } from './import-signals.ts';
 import { indexNow } from './indexnow.ts';
 import { logos } from './logos.ts';
 import { digest, notifyOffers } from './notify.ts';
@@ -15,6 +17,7 @@ const JOBS: Record<string, Job> = {
   'translate-eval': translateEval,
   'audit-eval': auditEval,
   'review-pending': reviewPending,
+  'import-signals': importSignals,
   logos,
   'sync-upstream': syncSources('upstream'),
   'sync-fast': syncSources('fast'),
@@ -26,7 +29,8 @@ const JOBS: Record<string, Job> = {
   'notify-offers': notifyOffers,
 };
 
-const USAGE = `usage: node src/main.ts <translate|translate-eval|audit-eval|review-pending|logos|sync-upstream|sync-fast|sync-slow|recheck|indexnow|prune|digest|notify-offers|daily|schedule> [--limit N] [--dry-run]
+const USAGE = `usage: node src/main.ts <translate|translate-eval|audit-eval|review-pending|import-signals|logos|sync-upstream|sync-fast|sync-slow|recheck|indexnow|prune|digest|notify-offers|daily|schedule> [--limit N] [--dry-run]
+  import-signals --file <path> [--dry-run]
   translate [--limit N] [--refresh] [--dry-run]
   translate-eval | audit-eval [--sample N]`;
 
@@ -102,7 +106,11 @@ function parseArgs(argv: string[]) {
     const arg = rest[i];
     if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--refresh') options.refresh = true;
-    else if (arg === '--sample') {
+    else if (arg === '--file') {
+      const file = rest[++i];
+      if (!file || file.startsWith('--')) throw new Error('--file needs a path');
+      options.file = resolve(process.env.INIT_CWD ?? process.cwd(), file);
+    } else if (arg === '--sample') {
       const sample = Number(rest[++i]);
       if (!Number.isInteger(sample) || sample < 1)
         throw new Error('--sample needs a positive integer');
@@ -114,6 +122,8 @@ function parseArgs(argv: string[]) {
       options.limit = limit;
     } else throw new Error(`unknown argument "${arg}"\n${USAGE}`);
   }
+  if (name === 'import-signals' && !options.file)
+    throw new Error('import-signals requires --file <path>');
   return { name, options };
 }
 

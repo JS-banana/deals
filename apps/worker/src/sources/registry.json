@@ -223,5 +223,12 @@
     "target": "https://www.v2ex.com/feed/deals.xml",
     "enabled": false,
     "quota": 15
+  },
+  {
+    "id": "agent-collected",
+    "type": "user_tip",
+    "target": "",
+    "enabled": false,
+    "quota": 50
   }
 ]

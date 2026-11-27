@@ -242,7 +242,7 @@ export async function syncSource(ctx: Ctx, source: SourceConfig, catalog: Catalo
     }
   }
 }
-function fingerprint(s: RawSignal) {
+export function fingerprint(s: RawSignal) {
   return sha256(JSON.stringify([s.title, s.rawText, s.candidateUrls]));
 }
 export function syncSources(tier: 'fast' | 'slow' | 'upstream'): Job {
