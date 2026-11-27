@@ -18,6 +18,35 @@ describe('factProblem', () => {
   it('lets a Chinese month number become a month name', () => {
     expect(factProblem({ zh: '12 月 7 日结束', product: 'X' }, 'Ends December 7')).toBeNull();
   });
+  it.each([
+    ['最高每月 320 万词', 'up to 3.2 million words'],
+    ['最高每月 320 万词', '3,200,000 words'],
+    ['最高每月 320 万词', '3.2M words'],
+    ['每月 25 万词', '250,000 words'],
+    ['每月 25 万词', '250K words'],
+    ['1亿 tokens', '100 million tokens'],
+    ['100 万积分/月', '1 million credits/month'],
+    ['3.5万词', '35 thousand words'],
+    ['1,200万词', '12000000 words'],
+    ['15亿词', '1.5bn words'],
+    ['每月 320 万词，赠 25 万积分', '250k bonus credits and 3.2mn words/month'],
+    ['1 万亿 tokens', '1 trillion tokens'],
+    ['10 万词额度', 'a 100-thousand-word quota'],
+    ['2026 万圣节优惠', '2026 Halloween sale'],
+  ])('accepts equivalent quantities in %s and %s', (zh, en) => {
+    expect(factProblem({ zh, product: 'X' }, en)).toBeNull();
+  });
+  it.each([
+    ['最高每月 320 万词', '320 words'],
+    ['最高每月 320 万词', '32 million words'],
+    ['最高每月 320 万词', '3.200004 million words'],
+    ['每月 320 万词，赠 25 万积分', '3.2 million words/month'],
+    ['320 万词，有效期 320 天', '3.2 million words'],
+    ['15 亿积分', '1,499,999,000 credits'],
+    ['1 万亿 tokens', '10,000 tokens'],
+  ])('rejects missing or altered quantities in %s and %s', (zh, en) => {
+    expect(factProblem({ zh, product: 'X' }, en)).not.toBeNull();
+  });
   it('rejects altered numbers, lost codes and leaked Chinese', () => {
     expect(factProblem(item, 'First year $23, then $39. Code BFCM2026, 3 years.')).not.toBeNull();
     expect(factProblem(item, 'First year $23.40, then $39. Code BF2026, 3 years.')).not.toBeNull();

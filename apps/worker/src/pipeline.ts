@@ -60,11 +60,39 @@ export interface Outcome {
 
 const hasCjk = (text: string) => /[\u3400-\u9fff]/.test(text);
 
+function englishQuantities(en: string): number[] {
+  const quantity =
+    /(?<![\w.])(\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)(?:[\s-]*(?:(thousand|k)|(million|mn|m)|(billion|bn|b)|(trillion|tn))\b)?/gi;
+  return Array.from(en.matchAll(quantity), ([, digits, thousand, million, billion, trillion]) => {
+    const value = Number(digits?.replaceAll(',', ''));
+    if (thousand) return value * 1e3;
+    if (million) return value * 1e6;
+    if (billion) return value * 1e9;
+    if (trillion) return value * 1e12;
+    return value;
+  });
+}
+
 /** Why a translation is unusable, or null: numbers and ALL-CAPS codes must survive, no Chinese may leak. */
 export function factProblem(item: Pick<Source, 'zh' | 'product'>, en: string): string | null {
+  // 万亿 is one unit; 万 in 万圣节 is part of a word, so that number keeps the literal check.
+  const scaled = /(\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)\s*(万亿|亿|万(?!圣))/g;
+  const quantities = [...item.zh.matchAll(scaled)];
+  if (quantities.length) {
+    const values = englishQuantities(en);
+    for (const [text, digits, unit] of quantities) {
+      const expected =
+        Number(digits?.replaceAll(',', '')) * (unit === '万' ? 1e4 : unit === '亿' ? 1e8 : 1e12);
+      // Tolerate only binary floating-point error (3.2 × 1e6), never a rounded figure.
+      if (!values.some((value) => Math.abs(value - expected) <= expected * 1e-12)) {
+        return `"${text}" missing from the English`;
+      }
+    }
+  }
+  const unscaled = item.zh.replace(scaled, '$2');
   const tokens = [
     // A month number (12 月) legitimately becomes a month name, so it is not checked.
-    ...(item.zh.match(/\d[\d.,]*(?![\d.,]*\s*月)/g) ?? []).map((t) => t.replace(/[.,]+$/, '')),
+    ...(unscaled.match(/\d[\d.,]*(?![\d.,]*\s*月)/g) ?? []).map((t) => t.replace(/[.,]+$/, '')),
     ...(item.zh.match(/\b[A-Z][A-Z0-9_]{3,}\b/g) ?? []),
   ];
   const lost = tokens.find((token) => !en.includes(token));
