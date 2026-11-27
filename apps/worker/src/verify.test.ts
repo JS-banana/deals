@@ -159,6 +159,7 @@ describe('stripUnverified', () => {
 });
 
 describe('pickEvent', () => {
+  const now = new Date('2026-11-20T12:00:00Z');
   const events = [
     {
       slug: 'evergreen',
@@ -183,21 +184,26 @@ describe('pickEvent', () => {
     },
   ];
   it('picks the featured, unfinished seasonal event the deal overlaps', () => {
-    expect(pickEvent(events, { startsOn: '2026-11-18', endsOn: '2026-11-30' }, '2026-11-20')).toBe(
+    expect(pickEvent(events, { startsOn: '2026-11-18', endsOn: '2026-11-30' }, now)).toBe(
       'bfcm-2026',
     );
-    expect(pickEvent(events, { startsOn: null, endsOn: null }, '2026-11-20')).toBe('bfcm-2026');
-    expect(pickEvent(events, { startsOn: '2026-11-20', endsOn: '2026-12-31' }, '2026-11-20')).toBe(
+    expect(pickEvent(events, { startsOn: null, endsOn: null }, now)).toBe('bfcm-2026');
+    expect(pickEvent(events, { startsOn: '2026-11-20', endsOn: '2026-12-31' }, now)).toBe(
       'bfcm-2026',
     );
   });
   it('falls back to evergreen when no event overlaps or the event has ended', () => {
-    expect(pickEvent(events, { startsOn: '2027-01-10', endsOn: '2027-01-20' }, '2026-11-20')).toBe(
+    expect(pickEvent(events, { startsOn: '2027-01-10', endsOn: '2027-01-20' }, now)).toBe(
       'evergreen',
     );
-    expect(pickEvent(events, { startsOn: '2026-06-05', endsOn: '2026-06-10' }, '2026-11-20')).toBe(
+    expect(pickEvent(events, { startsOn: '2026-06-05', endsOn: '2026-06-10' }, now)).toBe(
       'evergreen',
     );
+  });
+  it('keeps assigning offers through the final Pacific calendar day', () => {
+    const offer = { startsOn: null, endsOn: null };
+    expect(pickEvent(events, offer, new Date('2026-12-07T20:00:00Z'))).toBe('bfcm-2026');
+    expect(pickEvent(events, offer, new Date('2026-12-08T08:00:00Z'))).toBe('evergreen');
   });
 });
 

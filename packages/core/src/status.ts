@@ -1,7 +1,9 @@
 import type { Deal, DealEvent } from './schema.ts';
 
-/** Calendar used when a deal only publishes dates and no time zone. */
+/** Calendar for site records, including the date of a merchant check. */
 export const SITE_TIME_ZONE = 'Asia/Shanghai';
+/** Most BFCM merchants are in the US. Unzoned dates use Pacific time, the latest calendar day in the contiguous US. */
+export const DEFAULT_MERCHANT_TIME_ZONE = 'America/Los_Angeles';
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
@@ -28,7 +30,7 @@ export function eventPhase(
   now: Date,
 ): EventPhase {
   if (e.kind === 'evergreen') return 'live';
-  const today = calendarDay(now);
+  const today = calendarDay(now, DEFAULT_MERCHANT_TIME_ZONE);
   if (e.endsOn && today > e.endsOn) return 'ended';
   if (e.startsOn && today < e.startsOn) return 'upcoming';
   return 'live';
@@ -45,13 +47,13 @@ type Timing = Pick<
  * - `unknown`: not ended, but nobody has confirmed it started. Still shown as an active deal.
  *
  * Precise instants (`startsAt`/`endsAt`) win; date-only bounds use the merchant's calendar when
- * `dateZone` is known, otherwise the site's calendar.
+ * `dateZone` is known, otherwise US Pacific time.
  */
 export type DealState = 'upcoming' | 'live' | 'ended' | 'unknown';
 
 export function dealState(d: Timing, now: Date): DealState {
   if (d.observedEndedAt) return 'ended';
-  const day = calendarDay(now, d.dateZone ?? SITE_TIME_ZONE);
+  const day = calendarDay(now, d.dateZone ?? DEFAULT_MERCHANT_TIME_ZONE);
   const ended = d.endsAt
     ? now.getTime() >= Date.parse(d.endsAt)
     : d.endsOn !== null && day > d.endsOn;
@@ -63,7 +65,8 @@ export function dealState(d: Timing, now: Date): DealState {
   const started =
     d.startsAt !== null ||
     d.startsOn !== null ||
-    (d.observedLiveOn !== null && d.observedLiveOn <= day);
+    // Unzoned observations are recorded on the site's check date.
+    (d.observedLiveOn !== null && d.observedLiveOn <= (d.dateZone ? day : calendarDay(now)));
   return started ? 'live' : 'unknown';
 }
 
@@ -75,7 +78,8 @@ export function isEndingSoon(d: Timing, now: Date): boolean {
   if (state !== 'live' && state !== 'unknown') return false;
   if (d.endsAt) return Date.parse(d.endsAt) - now.getTime() <= 48 * HOUR;
   if (!d.endsOn) return false;
-  const left = Date.parse(d.endsOn) - Date.parse(calendarDay(now, d.dateZone ?? SITE_TIME_ZONE));
+  const today = calendarDay(now, d.dateZone ?? DEFAULT_MERCHANT_TIME_ZONE);
+  const left = Date.parse(d.endsOn) - Date.parse(today);
   return left >= 0 && left < 2 * DAY;
 }
 
