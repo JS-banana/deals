@@ -960,6 +960,15 @@ describe.skipIf(!databaseUrl)('source pipeline with PostgreSQL', () => {
         };
         const readProposal = async () =>
           (await tx.select().from(proposals).where(eq(proposals.id, id)))[0];
+        if (!dropped) {
+          // An unmarked proposal filed after sourceTrust shipped is not upgraded by its link alone.
+          await reviewPending(testCtx);
+          expect((await readProposal())?.auditInputs).not.toHaveProperty('sourceTrust');
+          await tx
+            .update(proposals)
+            .set({ createdAt: new Date('2026-11-20T00:00:00Z') })
+            .where(eq(proposals.id, id));
+        }
         await reviewPending(testCtx);
         expect(await readProposal()).toMatchObject({
           status: 'pending',
