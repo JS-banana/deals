@@ -2,7 +2,7 @@ import { createFormatter, createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import en from '../../messages/en.json';
 import zh from '../../messages/zh.json';
-import { deadline, type T } from './deal-view';
+import { deadline, relativeDay, type T } from './deal-view';
 
 const deal = {
   startsOn: '2026-11-20',
@@ -41,5 +41,13 @@ describe('deadline', () => {
     expect(deadline(ending, before, t, fmt).secondary).toContain(expected);
     expect(deadline(ending, new Date(instant), t, fmt).secondary).toContain(expected);
     expect(deadline({ ...deal, startsAt: instant }, before, t, fmt).secondary).toContain(expected);
+  });
+});
+
+describe('relativeDay', () => {
+  it('follows the Pacific calendar used for event phases', () => {
+    const t = createTranslator({ locale: 'en', messages: en, namespace: 'dates' }) as unknown as T;
+    expect(relativeDay('2026-11-27', new Date('2026-11-27T20:00:00Z'), t)).toBe('Today');
+    expect(relativeDay('2026-11-27', new Date('2026-11-28T08:00:00Z'), t)).toBe('Passed');
   });
 });

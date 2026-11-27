@@ -334,9 +334,18 @@ export async function extractCandidate(
     if (!renewal) return skip('existing-proposal');
     // A stable offer identity can recur. Require a later, merchant-quoted window before
     // giving it a new key, since the official page may still show the expired promotion.
-    const endedAt = renewal.observedEndedAt ?? renewal.endsAt;
+    // An early merchant end must not make the old announced end look like a new window.
+    const endedAt =
+      [renewal.observedEndedAt, renewal.endsAt]
+        .filter((value) => value !== null)
+        .sort((a, b) => Date.parse(a) - Date.parse(b))
+        .at(-1) ?? null;
     const zone = renewal.dateZone ?? DEFAULT_MERCHANT_TIME_ZONE;
-    const endedOn = endedAt ? calendarDay(new Date(endedAt), zone) : renewal.endsOn;
+    const endedOn =
+      [endedAt && calendarDay(new Date(endedAt), zone), renewal.endsOn]
+        .filter((value) => value !== null)
+        .sort()
+        .at(-1) ?? null;
     const gaps = missingMerchantEvidence(deal, [], kept, { url: page.url, text: page.text });
     const newWindow = (['startsAt', 'endsAt', 'startsOn', 'endsOn'] as const).some((field) => {
       const value = deal[field];

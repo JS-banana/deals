@@ -234,9 +234,9 @@ export function eventRange(
   return `${dayLabel(e.startsOn, now, fmt)} – ${dayLabel(e.endsOn, now, fmt)}`;
 }
 
-/** "in 7 days" / "today" / "passed" for a calendar date, from the site's calendar. */
+/** "in 7 days" / "today" / "passed" for an event key date, on the same calendar as `eventPhase`. */
 export function relativeDay(day: string, now: Date, t: T): string {
-  const diff = daysBetween(calendarDay(now), day);
+  const diff = daysBetween(calendarDay(now, DEFAULT_MERCHANT_TIME_ZONE), day);
   if (diff === 0) return t('today');
   return diff > 0 ? t('inDays', { count: diff }) : t('passed');
 }
